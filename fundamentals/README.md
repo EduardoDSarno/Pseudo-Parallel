@@ -1,0 +1,1 @@
+-This directory will be for learning purposes where I will build some if not all main componenets that will be part of the project in C, so I can understand their functionality and then add in the project using rust
