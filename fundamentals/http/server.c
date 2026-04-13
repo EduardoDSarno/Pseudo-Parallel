@@ -53,23 +53,23 @@ int accept_c(struct sockaddr_in *other,socklen_t *other_lenght, int file_descrip
 
 }
 
-int process_message(char *message, ssize_t bytes_received, int client_fd ){
+/*Validates Message Received by recv*/
+MessageStatus check_message(char *message, ssize_t bytes_received, int client_fd ){
 
     if (bytes_received > 0) 
     {
         parse_message(message, bytes_received);
+        return MESSAGE_CONTINUE;
     }
     else if (bytes_received == 0) 
     {
         printf("Client closed connection");
+        return MESSAGE_CLOSE;
     }
-    else 
-    {
-        perror("Error on establishin connection");
-        close(client_fd);
-        return CONNECTION_ERROR;
-    }
-    return 0;
+
+    perror("Error on establishin connection");
+    (void)client_fd;
+    return MESSAGE_ERROR;
 }
 
 void parse_message(char *buffer, size_t buffer_lenght){
@@ -88,21 +88,35 @@ void *worker(void* args){
         return NULL;
     }
 
-    ssize_t bytes_received = bytes_received = recv(client_fd, buffer,           SIZE_OF_MESSAGE_BUFFER,0); 
-    int n = 0;
+    ssize_t bytes_received = recv(client_fd, buffer, SIZE_OF_MESSAGE_BUFFER, 0);
+    MessageStatus status = check_message(buffer, bytes_received, client_fd);
     
-
-    
-    while (bytes_received < SIZE_OF_MESSAGE_BUFFER &&
-           strstr(buffer, "\r\n\r\n") != NULL) 
-    {
-        n = recv(client_fd, buffer,SIZE_OF_MESSAGE_BUFFER,0);
-        process_message(buffer, bytes_received, client_fd);
-
-        bytes_received += n;
+    if (status != MESSAGE_CONTINUE) {
+        free(buffer);
+        close(client_fd);
+        return NULL;
     }
 
-    
+    int n = 0;
+
+    /*Will loop through the bytes received until end of message token*/
+    while (bytes_received < SIZE_OF_MESSAGE_BUFFER) 
+    {
+        n = recv(client_fd, buffer + bytes_received, 
+            (SIZE_OF_MESSAGE_BUFFER - bytes_received),0);
+        status = check_message(buffer + bytes_received, n, client_fd);
+
+        if (status != MESSAGE_CONTINUE) 
+        {
+            break;
+        }
+
+        bytes_received += n;
+        
+        // if found
+        if(check_EOL(buffer, bytes_received) == 1) break;
+    }
+
     (void)bytes_received;
 
     free(buffer);
@@ -110,3 +124,23 @@ void *worker(void* args){
     return NULL;
 }
 
+/* Return 1 if match
+    0 if does not*/
+int check_EOL(const char *buffer , size_t total_lenght){
+
+    if (total_lenght < 4) {
+        return 0;
+    }
+
+    for (size_t i = 0; i <= total_lenght - 4; ++i) {
+        if( buffer[i]   == '\r' &&
+            buffer[i+1] == '\n' &&
+            buffer[i+2] == '\r' &&
+            buffer[i+3] == '\n') return 1;
+    }
+        
+    
+    
+    return 0;
+    
+}
