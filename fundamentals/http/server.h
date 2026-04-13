@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <ifaddrs.h>
 #include <net/if.h>
+#include "header.h"
 
 #define  MAX_TRIES_TO_LISTEN 20
 #define  SIZE_OF_MESSAGE_BUFFER 5000
@@ -18,5 +19,13 @@ struct sockaddr_in socket_init(const unsigned int *port, const uint32_t *ipv4_ad
 void bind_c(struct sockaddr_in *sockt, int file_descriptor);
 void listen_c(struct sockaddr_in *sockt, int file_descriptor);
 int accept_c(struct sockaddr_in *other,socklen_t *other_lenght, int file_descriptor);
+void parse_message(char *buffer,  size_t buffer_lenght);
+int receive_message(char *buffer, ssize_t buffer_lenght, int client_fd );
+void *worker (void*);
 
+typedef struct ThreadArgs
+{
+
+
+} ThreadArgs;
 #endif

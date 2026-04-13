@@ -1,4 +1,8 @@
 #include "server.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "header.h"
 
 int main(void)
 {
@@ -12,7 +16,6 @@ int main(void)
     bind_c(&sock, file_descriptor);
     listen_c(&sock, file_descriptor);
 
-    char *buffer = malloc(SIZE_OF_MESSAGE_BUFFER);
 
 
 
@@ -22,15 +25,17 @@ int main(void)
 
         int client_fd = accept_c(&client, &client_len, file_descriptor);
 
+        
         printf("Client connected! fd: %d\n", client_fd);
 
-        size_t bytes_received = recv(client_fd, buffer, SIZE_OF_MESSAGE_BUFFER, 0);
+        pthread_t thr;
 
-        buffer[bytes_received] = '\0';
+        pthread_create(&thr, NULL, worker, (void *)(intptr_t)client_fd);
 
-        printf("Message: %s", buffer);
+
+        //receive_message(buffer, bytes_received, client_fd);
+
 
     }
-
-    free(buffer);
+    return 0;
 }
