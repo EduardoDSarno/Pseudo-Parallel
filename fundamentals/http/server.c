@@ -2,6 +2,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 struct sockaddr_in socket_init(const unsigned int *port, const uint32_t *ipv4_addr)
@@ -58,7 +59,6 @@ MessageStatus check_message(char *message, ssize_t bytes_received, int client_fd
 
     if (bytes_received > 0) 
     {
-        parse_message(message, bytes_received);
         return MESSAGE_CONTINUE;
     }
     else if (bytes_received == 0) 
@@ -72,9 +72,81 @@ MessageStatus check_message(char *message, ssize_t bytes_received, int client_fd
     return MESSAGE_ERROR;
 }
 
-void parse_message(char *buffer, size_t buffer_lenght){
+void parse_message(struct HttpRequest *http_req, char *buffer, size_t buffer_lenght)
+{
+    if (http_req == NULL || buffer == NULL || buffer_lenght == 0) {
+        return;
+    }
 
+    if (get_request_line(http_req, buffer, buffer_lenght) != 0) 
+    {
+        fprintf(stderr, "Invalid request line\n");
+    }
+}
 
+int get_request_line(struct HttpRequest *http_req, char *buffer, size_t buffer_lenght)
+{
+    if (http_req == NULL || buffer == NULL || buffer_lenght < 2) {
+        return -1;
+    }
+
+    size_t line_end = 0;
+    int found_line_end = 0;
+    for (size_t i = 0; i + 1 < buffer_lenght; ++i) {
+        if (buffer[i] == '\r' && buffer[i + 1] == '\n') {
+            line_end = i;
+            found_line_end = 1;
+            break;
+        }
+    }
+
+    if (!found_line_end || line_end == 0) {
+        return -1;
+    }
+
+    buffer[line_end] = '\0';
+
+    char *method = buffer;
+    char *space1 = strchr(method, ' ');
+    if (space1 == NULL) {
+        return -1;
+    }
+    *space1 = '\0';
+
+    char *path = space1 + 1;
+    char *space2 = strchr(path, ' ');
+    if (space2 == NULL) {
+        return -1;
+    }
+    *space2 = '\0';
+
+    char *version = space2 + 1;
+    if (*method == '\0' || *path == '\0' || *version == '\0') {
+        return -1;
+    }
+
+    enum HttpMethodTyp parsed_method = HTTP_UNKNOWN;
+    for (size_t i = 0; i < KNOWN_HTTP_METHODS_LEN; ++i) {
+        if (strcmp(method, KNOWN_HTTP_METHODS[i].str) == 0) {
+            parsed_method = KNOWN_HTTP_METHODS[i].typ;
+            break;
+        }
+    }
+
+    if (parsed_method == HTTP_UNKNOWN) {
+        return -1;
+    }
+
+    if (strcmp(version, HTTP_VERSION) != 0) {
+        return -1;
+    }
+
+    http_req->method = parsed_method;
+    http_req->path = path;
+    http_req->_buffer = buffer;
+    http_req->_buffer_len = buffer_lenght;
+
+    return 0;
 }
 
 void *worker(void* args){
