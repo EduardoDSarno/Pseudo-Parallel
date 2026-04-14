@@ -29,7 +29,7 @@ void bind_c(struct sockaddr_in *sockt, int file_descriptor);
 void listen_c(struct sockaddr_in *sockt, int file_descriptor);
 int accept_c(struct sockaddr_in *other,socklen_t *other_lenght, int file_descriptor);
 void parse_message(struct HttpRequest * ,char *buffer,  size_t buffer_lenght);
-int get_request_line(struct HttpRequest *http_req, char *buffer, size_t buffer_lenght);
+int get_request_line(struct HttpRequest *http_req, char *buffer, size_t buffer_lenght, char * next);
 MessageStatus check_message(char *message, ssize_t bytes_received, int client_fd);
 void *worker (void*);
 int check_EOL(const char *buffer , size_t total_lenght);

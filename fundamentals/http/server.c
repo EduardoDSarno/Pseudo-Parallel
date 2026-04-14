@@ -84,7 +84,7 @@ void parse_message(struct HttpRequest *http_req, char *buffer, size_t buffer_len
     }
 }
 
-int get_request_line(struct HttpRequest *http_req, char *buffer, size_t buffer_lenght)
+int get_request_line(struct HttpRequest *http_req, char *buffer, size_t buffer_lenght, char * next)
 {
     if (http_req == NULL || buffer == NULL || buffer_lenght < 2) {
         return -1;
@@ -145,6 +145,17 @@ int get_request_line(struct HttpRequest *http_req, char *buffer, size_t buffer_l
     http_req->path = path;
     http_req->_buffer = buffer;
     http_req->_buffer_len = buffer_lenght;
+
+    size_t next_idx  = (line_end + 2);
+    if(next_idx < buffer_lenght)
+    {
+        next = &buffer[next_idx];
+    }
+    else 
+    {
+        fprintf(stderr, "Error allocating next cursor\n");
+        return -1;
+    }
 
     return 0;
 }
