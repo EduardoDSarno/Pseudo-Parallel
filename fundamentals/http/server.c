@@ -78,14 +78,36 @@ void parse_message(struct HttpRequest *http_req, char *buffer, size_t buffer_len
         return;
     }
 
-    if (get_request_line(http_req, buffer, buffer_lenght) != 0) 
+    char * cursor;
+    if (get_request_line(http_req, buffer, buffer_lenght, cursor) != 0) 
     {
         fprintf(stderr, "Invalid request line\n");
     }
 }
 
+int get_headers(struct HttpRequest *http_req, char *buffer, size_t buffer_lenght, char * next){
+
+    size_t found_line_start = 0;
+    int found_line_end = 0;
+    
+    for (int i = 0; i < buffer_lenght; ++i) {
+        if (buffer[i] == '\r' && buffer[i + 1] == '\n')
+        {
+            found_line_start = 0;
+            found_line_end = i;
+
+            i += 2; // skips last 2 parts
+
+            
+        }
+    }
+
+
+}
+
 int get_request_line(struct HttpRequest *http_req, char *buffer, size_t buffer_lenght, char * next)
 {
+
     if (http_req == NULL || buffer == NULL || buffer_lenght < 2) {
         return -1;
     }

@@ -1,0 +1,10 @@
+[package]
+name = "rust-http-fundamentals"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+
+[[bin]]
+name = "http_server"
+path = "src/http_server.rs"
