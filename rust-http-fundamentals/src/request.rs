@@ -1,7 +1,7 @@
 use std::{collections::HashMap, net::SocketAddr};
 
 #[derive(Debug)]
-enum Method {
+pub enum Method {
     Get,
     Post,
     Put,
@@ -25,6 +25,13 @@ pub struct HttpRequest {
 
 
 impl HttpRequest{
+
+    pub fn method(&self) -> &Method { &self.method }
+    pub fn path(&self) -> &str { &self.path }
+    pub fn version(&self) -> &str { &self.version }
+    pub fn headers(&self) -> &HashMap<String, String> { &self.headers }
+    pub fn content_length(&self) -> Option<usize> { self.content_length }
+    pub fn body(&self) -> Option<&str> { self.body.as_deref() }
 
     pub fn new(method:String, path:String, version:String,
               headers: HashMap<String, String>, content_length: Option<usize>, body:Option<String>)
@@ -64,6 +71,9 @@ pub struct RequestContext {
 }
 
 impl RequestContext{
+
+    pub fn request(&self) -> &HttpRequest { &self.request }
+    pub fn addr(&self) -> &SocketAddr { &self.addr }
 
     pub fn new(request: HttpRequest, addr: SocketAddr,)->RequestContext{
 

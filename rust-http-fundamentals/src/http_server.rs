@@ -1,7 +1,7 @@
 #[path = "request.rs"]
 mod request;
 use request::{HttpRequest, RequestContext};
-use std::{collections::HashMap, io::{BufRead, BufReader, Read}, net::{Ipv4Addr, SocketAddr, TcpListener, TcpStream}, os::unix::net::SocketAddr};
+use std::{collections::HashMap, io::{BufRead, BufReader, Read}, net::{Ipv4Addr, SocketAddr, TcpListener, TcpStream}};
 use std::thread;
 
 
@@ -37,7 +37,7 @@ fn main() -> std::io::Result<()>{
         /* What mov || does is a anoymous function that gives the ownership to handle client
             so that they don't lose that data */
         let thread_join_handle = thread::spawn(move ||{
-            handle_client(stream); 
+            let request = handle_client(stream); 
         });
     }
     Ok(())
@@ -108,5 +108,38 @@ pub fn get_context(req: HttpRequest, addr: SocketAddr) -> Result<RequestContext,
     let context = RequestContext::new(req, addr);
     Ok(context)
 }
+
+pub fn print_request(request: RequestContext){
+    println!("========== Incoming HTTP Request ==========");
+    println!("Remote Address: {}", request.addr());
+    println!("--- Request Line ---");
+    let req = request.request();
+
+    println!("Method:   {:?}", req.method());
+    println!("Path:     {}", req.path());
+    println!("Version:  {}", req.version());
+
+    println!("--- Headers ---");
+    for (key, value) in req.headers() {
+        println!("{}: {}", key, value);
+    }
+
+    if let Some(len) = req.content_length() {
+        println!("Content-Length: {}", len);
+    }
+
+    match req.body() {
+        Some(body) => {
+            println!("--- Body ---");
+            println!("{}", body);
+        }
+        None => {
+            println!("--- No Body ---");
+        }
+    }
+    println!("==========================================");
+}
+
+
 
 
