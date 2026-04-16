@@ -1,6 +1,9 @@
-
-use std::{fmt::{Debug, Error}, io::{BufRead, BufReader}, net::{Ipv4Addr, SocketAddr, TcpListener, TcpStream}};
+#[path = "request.rs"]
+mod request;
+use request::HttpRequest;
+use std::{collections::HashMap, io::{BufRead, BufReader, Read}, net::{Ipv4Addr, SocketAddr, TcpListener, TcpStream}};
 use std::thread;
+
 
 /*Small http sample */
 fn main() -> std::io::Result<()>{
@@ -41,18 +44,58 @@ fn main() -> std::io::Result<()>{
 }
 
 
-pub fn handle_client(stream: TcpStream, addr: SocketAddr) -> Result<(), Box<dyn std::error::Error>>{
+pub fn handle_client(stream: TcpStream, addr: SocketAddr) -> Result<HttpRequest, Box<dyn std::error::Error>>{
 
     /* Creatinga buffReader, it a rust struct that it have the job off
         copying the whole message in a buffer instaed of us manually doing
         syscalls over and over (which is expensive)*/
     let reader = BufReader::new(&stream);
 
-    let request_line = reader.lines().next(); // "GET /hello HTTP/1.1"
+    // Create the iterator once - we reuse it with .by_ref() so ownership isn't lost
+    let mut lines = reader.lines();
 
-    Request 
+    /* This part will take care of the request line */
+    let request_line: String = lines.next().ok_or("empty request")??;
 
-    Ok(())
+    let mut parts = request_line.split_whitespace();
+    let method  = parts.next().ok_or("missing method")?;
+    let path    = parts.next().ok_or("missing path")?;
+    let version = parts.next().ok_or("missing version")?;
+
+    /*This part will take care of the headers mapping them to the hashmap */
+    let headers: HashMap<String, String> = lines
+    .by_ref()                             // borrow the iterator, don't consume it
+    .map(|l| l.unwrap())
+    .take_while(|line| !line.is_empty())  // stop at blank line
+    .filter_map(|line| {
+        let mut parts = line.splitn(2, ": ");   // split in 2 because the values can contain the ':' itself
+        let key = parts.next()?.to_string();
+        let val = parts.next()?.to_string();
+        Some((key, val))
+    })
+    .collect();
+
+    /* This part will be if there's a body */
+    let mut body = None;
+    let mut content_lenght:Option<usize> = None;
+    /* This will check if there's a body and use it */
+    if let Some(cl) = headers.get("Content-Length") {
+
+        let len:usize = cl.parse()?;
+
+        content_lenght = Some(len);
+        body = Some(lines.collect::<Result<Vec<String>, _>>()?.join("\n"));
+    }
+
+    let http_req = HttpRequest::new(
+        method.to_string(),
+        path.to_string(),
+        version.to_string(),
+        headers,
+        content_lenght,
+        body
+    );
+    Ok(http_req)
 }
 
 
