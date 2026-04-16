@@ -1,7 +1,7 @@
 #[path = "request.rs"]
 mod request;
-use request::HttpRequest;
-use std::{collections::HashMap, io::{BufRead, BufReader, Read}, net::{Ipv4Addr, SocketAddr, TcpListener, TcpStream}};
+use request::{HttpRequest, RequestContext};
+use std::{collections::HashMap, io::{BufRead, BufReader, Read}, net::{Ipv4Addr, SocketAddr, TcpListener, TcpStream}, os::unix::net::SocketAddr};
 use std::thread;
 
 
@@ -37,14 +37,15 @@ fn main() -> std::io::Result<()>{
         /* What mov || does is a anoymous function that gives the ownership to handle client
             so that they don't lose that data */
         let thread_join_handle = thread::spawn(move ||{
-            handle_client(stream, addr); 
+            handle_client(stream); 
         });
     }
     Ok(())
 }
 
-
-pub fn handle_client(stream: TcpStream, addr: SocketAddr) -> Result<HttpRequest, Box<dyn std::error::Error>>{
+/*The handle client function that it will receive a raw Request and it will parse and return the Request St
+ruct for easy manipualtion of data or it will return error */
+pub fn handle_client(stream: TcpStream) -> Result<HttpRequest, Box<dyn std::error::Error>>{
 
     /* Creatinga buffReader, it a rust struct that it have the job off
         copying the whole message in a buffer instaed of us manually doing
@@ -84,6 +85,8 @@ pub fn handle_client(stream: TcpStream, addr: SocketAddr) -> Result<HttpRequest,
         let len:usize = cl.parse()?;
 
         content_lenght = Some(len);
+        //  claude recommendation to separate the result into lines on a vector
+        // instaed of putting all in one string
         body = Some(lines.collect::<Result<Vec<String>, _>>()?.join("\n"));
     }
 
@@ -98,5 +101,12 @@ pub fn handle_client(stream: TcpStream, addr: SocketAddr) -> Result<HttpRequest,
     Ok(http_req)
 }
 
+/*Get the call context
+    Which includes the request and the SocketAddress */
+pub fn get_context(req: HttpRequest, addr: SocketAddr) -> Result<RequestContext, Box< dyn std::error::Error>>
+{
+    let context = RequestContext::new(req, addr);
+    Ok(context)
+}
 
 

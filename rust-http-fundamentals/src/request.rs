@@ -1,3 +1,4 @@
+use std::{collections::HashMap, net::SocketAddr};
 
 #[derive(Debug)]
 enum Method {
@@ -12,10 +13,7 @@ enum Method {
     Patch,
 }
 
-
-
-use std::collections::HashMap;
-
+#[derive(Debug)]
 pub struct HttpRequest {
     method: Method,
     path: String,
@@ -55,5 +53,25 @@ impl HttpRequest{
             body:    body
         };
         httpreq
+    }
+}
+
+/* CONTEXT OF REQUEST */
+#[derive(Debug)]
+pub struct RequestContext {
+    request: HttpRequest,
+    addr: SocketAddr,
+}
+
+impl RequestContext{
+
+    pub fn new(request: HttpRequest, addr: SocketAddr,)->RequestContext{
+
+        let req_cntx = RequestContext{
+            request: request,
+            addr: addr
+        };
+
+        req_cntx
     }
 }
