@@ -36,8 +36,21 @@ fn main() -> std::io::Result<()>{
         // handle stream
         /* What mov || does is a anoymous function that gives the ownership to handle client
             so that they don't lose that data */
-        let thread_join_handle = thread::spawn(move ||{
-            let request = handle_client(stream); 
+        let thread_join_handle = thread::spawn(move || 
+            {
+            /* This statement is very dense, but is bascially a anonymous function that returns a result,
+                ( I did that so I could use the ? for syntax simplification) and the Result will be based
+                 on the success of all the functions that should also internally fail and warn if something goes wrong */
+            let result = (|| -> Result<(), Box<dyn std::error::Error>> {
+                let request = handle_client(stream)?;
+                let context = get_context(request, addr)?;
+                print_request(context);
+                Ok(())
+            })();
+        
+            if let Err(e) = result {
+                eprintln!("Error handling client: {e}");
+            }
         });
     }
     Ok(())
@@ -109,6 +122,8 @@ pub fn get_context(req: HttpRequest, addr: SocketAddr) -> Result<RequestContext,
     Ok(context)
 }
 
+
+/*Function that will nicely print the request Context */
 pub fn print_request(request: RequestContext){
     println!("========== Incoming HTTP Request ==========");
     println!("Remote Address: {}", request.addr());
