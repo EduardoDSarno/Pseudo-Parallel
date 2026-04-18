@@ -1,5 +1,8 @@
 #[path = "request.rs"]
 mod request;
+#[path = "response.rs"]
+mod response;
+use response::HttpResponse;
 use request::{HttpRequest, RequestContext};
 use std::{collections::HashMap, io::{BufRead, BufReader, Read}, net::{Ipv4Addr, SocketAddr, TcpListener, TcpStream}};
 use std::thread;
@@ -58,7 +61,7 @@ fn main() -> std::io::Result<()>{
 
 /*The handle client function that it will receive a raw Request and it will parse and return the Request St
 ruct for easy manipualtion of data or it will return error */
-pub fn handle_client(stream: TcpStream) -> Result<HttpRequest, Box<dyn std::error::Error>>{
+pub fn handle_client(stream: TcpStream) -> Result<(HttpRequest), Box<dyn std::error::Error>>{
 
     /* Creatinga buffReader, it a rust struct that it have the job off
         copying the whole message in a buffer instaed of us manually doing
@@ -111,12 +114,25 @@ pub fn handle_client(stream: TcpStream) -> Result<HttpRequest, Box<dyn std::erro
         content_lenght,
         body
     );
+    // creating hardcoded response for test
+    let mut headers = HashMap::new();
+    headers.insert("Content-Type".to_string(), "text/plain".to_string());
+    respond_client(stream, 200, "OK".to_string(), headers, Some("Hello!".to_string()))?;
     Ok(http_req)
+    
 }
 
-pub fn respond_client(stream: TcpStream, http_req: HttpRequest) -> Result<(), Box<dyn std::error::Error>>{
+pub fn respond_client(
+    stream: TcpStream,
+    status_code: u8,
+    status_text: String,
+    headers: HashMap<String, String>,
+    body: Option<String>
+) -> Result<(), Box<dyn std::error::Error>> {
 
-    
+    let response = HttpResponse::new(status_code, status_text, headers, body);
+    let response_str = HttpResponse::format_response(response);
+    HttpResponse::respond(response_str, stream)?;
     Ok(())
 }
 

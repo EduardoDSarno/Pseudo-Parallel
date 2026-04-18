@@ -30,10 +30,9 @@ impl HttpResponse {
         stream.flush()?;
         Ok(())
     }
-
-    pub fn format_response(response: HttpResponse, body : Option<String>) -> String
+    pub fn format_response(response: HttpResponse) -> String
     {
-    let body_str = body.or(response.body).unwrap_or_else(|| "".to_string());
+    let body_str = response.body.unwrap_or_else(|| "".to_string());
     let content_length = body_str.len();
 
     // Start with the status line
