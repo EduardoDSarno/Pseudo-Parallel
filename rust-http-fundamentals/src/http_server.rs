@@ -114,6 +114,12 @@ pub fn handle_client(stream: TcpStream) -> Result<HttpRequest, Box<dyn std::erro
     Ok(http_req)
 }
 
+pub fn respond_client(stream: TcpStream, http_req: HttpRequest) -> Result<(), Box<dyn std::error::Error>>{
+
+    
+    Ok(())
+}
+
 /*Get the call context
     Which includes the request and the SocketAddress */
 pub fn get_context(req: HttpRequest, addr: SocketAddr) -> Result<RequestContext, Box< dyn std::error::Error>>
