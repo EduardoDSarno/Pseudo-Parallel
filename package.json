@@ -1,0 +1,23 @@
+{
+  "name": "pseudo-parallel",
+  "version": "1.0.0",
+  "main": "backend-ts/dist/index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc -p tsconfig.json",
+    "start": "node backend-ts/dist/index.js",
+    "dev": "tsx backend-ts/src/index.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.8.3"
+  }
+}

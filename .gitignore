@@ -1,8 +1,19 @@
+# Rust
 *.o
 *.out
 tcp
 main
-
-# Added by cargo
-
 /target
+
+# Node
+/node_modules
+/dist
+/backend-ts/dist
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store

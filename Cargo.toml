@@ -1,5 +1,11 @@
 [package]
-name = "Pseudo-Parallel"
+name = "pseudo-parallel"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "pseudo-parallel-engine"
+path = "engine-rust/src/main.rs"
 
 
 [dependencies]
