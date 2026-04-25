@@ -17,7 +17,7 @@ pub struct OrderBookL2 {
 pub struct Candle {
     #[serde(rename = "t")]
     pub open_time_ms: u64, // open millis
-
+    
     #[serde(rename = "T")]
     pub close_time_ms: u64, // close millis
 
@@ -28,22 +28,23 @@ pub struct Candle {
     pub interval: String,
 
     #[serde(rename = "o")]
-    pub open_price: f64,
+    pub open_price: String,
 
     #[serde(rename = "c")]
-    pub close_price: f64,
+    pub close_price: String,
 
     #[serde(rename = "h")]
-    pub high_price: f64,
+    pub high_price: String,
 
     #[serde(rename = "l")]
-    pub low_price: f64,
+    pub low_price: String,
 
     #[serde(rename = "v")]
-    pub volume: f64,
+    pub volume: String,
 
     #[serde(rename = "n")]
-    pub trade_count: u64,
+    pub trade_count: u64
+
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -68,9 +69,35 @@ pub struct Trade {
     pub users: [String; 2], // [buyer, seller]
 }
 
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum WsMessage {
+#[serde(tag = "channel", content = "data")]
+pub enum WsMessageRecv {
+    // Wrapper for the first confirmation message
+    #[serde(rename = "subscriptionResponse")]
+    SubscriptionResponse(SubscriptionResponseData),
+
+    #[serde(rename = "l2Book")]
     L2Book(OrderBookL2),
+
+    #[serde(rename = "candle")]
     Candle(Candle),
-    Trade(Trade),
+
+    #[serde(rename = "trades")]
+    Trade(Vec<Trade>),
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SubscriptionResponseData {
+    pub method: String,
+    pub subscription: SubscriptionResponseSubscription,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SubscriptionResponseSubscription {
+    #[serde(rename = "type")]
+    pub sub_type: String,
+    pub coin: String,
+    pub interval: Option<String>, // just for candles
+}
+
