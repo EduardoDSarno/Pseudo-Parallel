@@ -1,7 +1,8 @@
-mod ws;
+mod market_data;
 
-use crate::ws::ws_send::*;
-use crate::ws::ws_recv::*;
+use crate::market_data::hyperliquid::protocols::candle::{Intervals, WsMessageRecv};
+use crate::market_data::hyperliquid::protocols::message::WsMessage;
+use crate::market_data::hyperliquid::protocols::subscribe::{Method, Subscription, SubscriptionType};
 use futures_util::{SinkExt, StreamExt};
 use tokio_tungstenite::connect_async;
 use tokio_tungstenite::tungstenite::Message;
@@ -23,7 +24,6 @@ async fn main()->Result<(), Box<dyn std::error::Error>>
     while let Some(recv) = ws.next().await
     {
         let recv = recv?;
-        println!("Message: {:?}", recv);
 
         match recv 
         {
@@ -31,7 +31,7 @@ async fn main()->Result<(), Box<dyn std::error::Error>>
             {
                 
                 let deserialized: WsMessageRecv = serde_json::from_str(&s)?;
-                println!("Message: {:?}", deserialized);
+                println!("Message: {:#?}", deserialized);
                 
             }
             Message::Ping(s)=>
@@ -44,10 +44,9 @@ async fn main()->Result<(), Box<dyn std::error::Error>>
             }
             _ =>{}
         }
-        
-        
     }
    
 
     Ok(())
 }
+
