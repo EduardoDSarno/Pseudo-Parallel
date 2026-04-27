@@ -1,33 +1,34 @@
 
-// You gotta create a function here that will subscribe/ unsuscribe fo a stream by receveing it type and the command
-
-//async fn handle_hl_stream()
-
-// you gonna need to refactor all this mess tmr, because I think messsage is unescssary, since now we have just one channel by separating parts
-// by what they should do it should be better allocated right now is a horrible spagheti
-
-use futures_util::StreamExt;
+use futures_util::{SinkExt, StreamExt};
 use tokio::net::TcpStream;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async, tungstenite::Message};
-
-use crate::market_data::constans::HYPERLIQUID_WS_URL;
+use crate::market_data::{constans::HYPERLIQUID_WS_URL, hyperliquid::protocols::inbound::InboundMessage};
 
 
 
 pub async fn run_hyperliquid_client(message: String) -> Result<(), Box<dyn std::error::Error>> 
 {
     // connect with hype Ws
-    let mut ws_stream = connect_ws();
+    let mut ws_stream = connect_ws_hl().await?;
 
-    // send message
-    let serialized_msg = serde_json::to_string(&message);
+    // send message 
+    ws_stream.send(Message::Text(message)).await?;
 
-    //ws_stream.send
+
+    while let Some(result) =  ws_stream.next().await
+    {
+        // It will return false when closed
+        if !read_message(result)
+        {
+            break;
+        }
+    }
 
     Ok(())
 }
 
-async fn connect_ws()->Result<WebSocketStream<MaybeTlsStream<TcpStream>>, Box<dyn std::error::Error>>
+/* This function it returns a websocketsream conneciton with hyperlquid */
+async fn connect_ws_hl() -> Result<WebSocketStream<MaybeTlsStream<TcpStream>>, Box<dyn std::error::Error>>
 {
     let (ws_stream, response) = 
     connect_async(HYPERLIQUID_WS_URL).
@@ -39,15 +40,65 @@ async fn connect_ws()->Result<WebSocketStream<MaybeTlsStream<TcpStream>>, Box<dy
     Ok(ws_stream)
 }
 
-async fn read_message(mut ws_stream: WebSocketStream<MaybeTlsStream<TcpStream>>)
+/* THis function will read the message and try to match (if successfully received text)
+    with one of our message inbounds otherwise it will match with different types of responses
+     */
+fn read_message(result: Result<Message, tokio_tungstenite::tungstenite::Error>) -> bool
+{
+    match result
+    {
+        Ok(Message::Text(text)) => 
+        {
+            let deserialized = serde_json::from_str::<InboundMessage>(&text);
+            match_response(deserialized);
+            true
+        }
+        // Tokio tungstain handles automatically
+        Ok(Message::Ping(_message)) =>
+        {
+            println!("Received ping");
+            true
+        }
+        Ok(Message::Pong(_message))=>
+        {
+            println!("Received Pong");
+            true
+        }
+        Ok(Message::Close(close_frame)) => 
+        {
+            println!("WebSocket closed: {:?}", close_frame);
+            false
+        }
+        _ => 
+        {
+            println!("Received an unexpected WebSocket message type or encountered an error in the stream.");
+            true
+        },
+
+    }
+    
+}
+
+/* THis function is soly responsible for matching the message with one of our inbounds streams */
+fn match_response(message_response: Result<InboundMessage, serde_json::Error>)
 {
 
-    while let Some(result) =  ws_stream.next().await
+    match message_response
     {
-        match result
+        Ok(InboundMessage::SubscriptionResponse(response))=>
         {
-            Ok(Message::Text(text)) => 
+            println!("{:?} Successeful. Steam: {:?}",response.method, response.subscription)
+        }
+
+        Ok(InboundMessage::Candle(_candle)) => 
+        {
+            // candle.open_price
+            // candle.close_price
+            todo!()
+        }
+        Err(err) => {
+            // failed to parse JSON
+            println!("Failed to parse JSON, message: {:#}", err);
         }
     }
 }
-
