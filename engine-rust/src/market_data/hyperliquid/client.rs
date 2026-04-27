@@ -90,11 +90,12 @@ fn match_response(message_response: Result<InboundMessage, serde_json::Error>)
             println!("{:?} Successeful. Steam: {:?}",response.method, response.subscription)
         }
 
-        Ok(InboundMessage::Candle(_candle)) => 
+        Ok(InboundMessage::Candle(candle)) => 
         {
             // candle.open_price
             // candle.close_price
-            todo!()
+            // todo!()
+            println!("{:#?}", candle)
         }
         Err(err) => {
             // failed to parse JSON
