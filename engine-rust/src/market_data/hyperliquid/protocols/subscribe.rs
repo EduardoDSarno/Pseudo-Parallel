@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
-use tokio_tungstenite::tungstenite::http::method;
 
-use crate::market_data::hyperliquid::protocols::candle::{Candle, Interval};
+use crate::market_data::hyperliquid::protocols::candle::Interval;
 
 
 #[derive(Deserialize,Serialize)]
@@ -51,20 +50,4 @@ impl SubscribeToChannelReq{
        req
     }
 }
-
-// pub fn create_message(sub_request: SubscribeToChannelReq)
-// {
-//     let message = match  sub_request.sub_method{
-//         Method::SUBSCRIBE => 
-//         {
-//             let message_json = serde_json::to_string(&sub_request).unwrap();
-//             println!("serialized = {}", message_json);
-//         }
-//         Method::UNSUBSCRIBE=>
-//         {
-//             let message_json = serde_json::to_string(&sub_request).unwrap();
-//             println!("serialized = {}", message_json);
-//         }
-//     };
-// }
 

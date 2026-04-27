@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Candle {
+pub struct _Candle {
     #[serde(rename = "t")]
     pub open_time_ms: u64, // open millis
     
@@ -34,12 +34,6 @@ pub struct Candle {
     pub trade_count: u64
 
 }
-
-pub struct CandleSubscribe{
-    coin: String,
-    interval: Interval
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum Interval {
     #[serde(rename = "1m")]
@@ -50,15 +44,4 @@ pub enum Interval {
     FifteenMinutes,
     #[serde(rename = "1h")]
     OneHour,
-}
-
-impl CandleSubscribe{
-    pub fn new(token: String, interval:Interval)-> CandleSubscribe{
-        
-        let candle_sub = CandleSubscribe {
-            coin: token,
-            interval: interval,
-        };
-        candle_sub
-    }
 }
