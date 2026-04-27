@@ -1,6 +1,5 @@
 
 use serde::{Deserialize, Serialize};
-use crate::market_data::hyperliquid::protocols::subscribe::SubscriptionResponseData;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Candle {
@@ -36,9 +35,15 @@ pub struct Candle {
 
 }
 
+pub struct CandleSubscribe{
+    coin: String,
+    interval: Interval
+}
 
-#[derive(Serialize, Deserialize, Debug)]
-pub enum Intervals {
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum Interval {
+    #[serde(rename = "1m")]
+    OneMinute,
     #[serde(rename = "5m")]
     FiveMinutes,
     #[serde(rename = "15m")]
@@ -47,4 +52,13 @@ pub enum Intervals {
     OneHour,
 }
 
-
+impl CandleSubscribe{
+    pub fn new(token: String, interval:Interval)-> CandleSubscribe{
+        
+        let candle_sub = CandleSubscribe {
+            coin: token,
+            interval: interval,
+        };
+        candle_sub
+    }
+}
