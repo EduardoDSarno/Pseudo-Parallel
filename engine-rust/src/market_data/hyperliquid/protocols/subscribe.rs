@@ -1,43 +1,38 @@
 use serde::{Deserialize, Serialize};
 
-use crate::market_data::hyperliquid::protocols::candle::Interval;
+use crate::market_data::{constans::COINS, hyperliquid::protocols::candle::Interval};
 
 
 #[derive(Deserialize,Serialize)]
-pub struct SubscribeToChannelReq{
-
-    #[serde(rename = "method")]
+#[serde(rename_all = "lowercase")]
+pub struct SubscribeToChannelReq
+{
     pub(crate) sub_method: Method,
-    #[serde(rename = "subscription")]
     subscription_data: SubscriptionData
 }
 
 #[derive(Deserialize, Serialize)]
-#[serde(tag = "type")]
+#[serde(tag = "type", rename_all = "camelCase")]
 pub enum SubscriptionData {
-    #[serde(rename = "candle")]
+
     Candle {
-        coin: String,
+        coin: COINS,
         interval: Interval,
     },
-    #[serde(rename = "l2Book")]
     L2Book {
-        coin: String,
+        coin: COINS,
     },
-    #[serde(rename = "trades")]
     Trades {
-        coin: String,
+        coin: COINS,
     },
-    #[serde(rename = "userEvents")]
     UserEvents {
         user: String,
     },
 }
 #[derive(Deserialize,Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Method{
-    #[serde(rename = "subscribe")]
     SUBSCRIBE,
-    #[serde(rename = "unsubscribe")]
     UNSUBSCRIBE
 }
 impl SubscribeToChannelReq{
