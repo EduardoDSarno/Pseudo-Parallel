@@ -1,17 +1,19 @@
 use serde::{Deserialize, Serialize};
 
-use crate::market_data::{constans::COINS, hyperliquid::protocols::candle::Interval};
+use crate::market_data::constans::COINS;
+use crate::market_data::hyperliquid::protocols::data_models::candle::Interval;
 
 
 #[derive(Deserialize,Serialize)]
 #[serde(rename_all = "lowercase")]
 pub struct SubscribeToChannelReq
 {
-    pub(crate) sub_method: Method,
-    subscription_data: SubscriptionData
+    
+    method: Method,
+    subscription: SubscriptionData
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum SubscriptionData {
 
@@ -29,7 +31,7 @@ pub enum SubscriptionData {
         user: String,
     },
 }
-#[derive(Deserialize,Serialize)]
+#[derive(Deserialize,Serialize, Debug, Clone,)]
 #[serde(rename_all = "lowercase")]
 pub enum Method{
     SUBSCRIBE,
@@ -39,8 +41,8 @@ impl SubscribeToChannelReq{
     pub fn new(method: Method, sub_data :SubscriptionData)->SubscribeToChannelReq
     {
        let req = SubscribeToChannelReq{
-        sub_method: method,
-        subscription_data: sub_data
+        method: method,
+        subscription: sub_data
        };
        req
     }

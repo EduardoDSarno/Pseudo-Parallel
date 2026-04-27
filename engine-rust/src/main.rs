@@ -1,4 +1,4 @@
-use crate::market_data::{constans::COINS, hyperliquid::protocols::{candle::Interval, subscribe::{
+use crate::market_data::{constans::COINS, hyperliquid::protocols::{data_models::candle::Interval, subscribe::{
     Method,
     SubscribeToChannelReq, SubscriptionData,
 }}};
