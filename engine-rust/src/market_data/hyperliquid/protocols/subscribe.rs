@@ -8,7 +8,6 @@ use crate::market_data::hyperliquid::protocols::data_models::candle::Interval;
 #[serde(rename_all = "lowercase")]
 pub struct SubscribeToChannelReq
 {
-    
     method: Method,
     subscription: SubscriptionData
 }
@@ -37,7 +36,8 @@ pub enum Method{
     SUBSCRIBE,
     UNSUBSCRIBE
 }
-impl SubscribeToChannelReq{
+impl SubscribeToChannelReq
+{
     pub fn new(method: Method, sub_data :SubscriptionData)->SubscribeToChannelReq
     {
        let req = SubscribeToChannelReq{
