@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-use crate::market_data::constans::COINS;
-use crate::market_data::hyperliquid::protocols::data_models::candle::Interval;
+use crate::market_data::candle::COINS;
+use crate::market_data::candle::Interval;
 
 
 #[derive(Deserialize,Serialize)]

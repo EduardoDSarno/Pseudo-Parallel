@@ -34,14 +34,4 @@ pub struct CandleHL {
     pub trade_count: u64
 
 }
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub enum Interval {
-    #[serde(rename = "1m")]
-    OneMinute,
-    #[serde(rename = "5m")]
-    FiveMinutes,
-    #[serde(rename = "15m")]
-    FifteenMinutes,
-    #[serde(rename = "1h")]
-    OneHour,
-}
+
