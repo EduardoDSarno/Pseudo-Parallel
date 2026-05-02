@@ -37,6 +37,8 @@ impl Engine
             // we check if the time is different 
             if last.open_time_ms != candle.open_time_ms 
             {
+                // add another variable here to be able to pass inside push_back
+                // without breaking the imutability of self by using last
                 let to_push = last.clone();
                 // entry key returns a Entry enum that checks if the key is Ocuppied or Free
                 // if free runs new::VecDeque if not it will
@@ -47,6 +49,7 @@ impl Engine
                 // push last because canlde is the one that just started
                 // to its map, clone so it does not takes ownership
                 buf.push_back(to_push);
+                println!("New Candle Added: {:#?}", &candle);
 
                 if buf.len() > MAX_LENGTH_CANDLE_BUFFER 
                 {
