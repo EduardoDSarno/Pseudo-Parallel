@@ -1,2 +1,2 @@
 pub mod protocols;
-pub mod client;
+pub mod hl_client;

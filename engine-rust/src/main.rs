@@ -1,4 +1,4 @@
-use crate::market_data::{engine::Engine, hyperliquid::{client::run_hyperliquid_client, protocols::subscribe::{
+use crate::market_data::{engine::Engine, hyperliquid::{hl_client::run_hyperliquid_client, protocols::subscribe::{
     Method,
     SubscribeToChannelReq, SubscriptionData,
 }}, types::candle::{COINS, CandleKey, Interval}};

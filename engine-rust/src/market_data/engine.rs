@@ -48,8 +48,8 @@ impl Engine
 
                 // push last because canlde is the one that just started
                 // to its map, clone so it does not takes ownership
+                println!("New Candle Added: {:#?}", &to_push);
                 buf.push_back(to_push);
-                println!("New Candle Added: {:#?}", &candle);
 
                 if buf.len() > MAX_LENGTH_CANDLE_BUFFER 
                 {
