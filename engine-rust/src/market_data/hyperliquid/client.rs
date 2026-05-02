@@ -2,7 +2,7 @@
 use futures_util::{SinkExt, StreamExt};
 use tokio::net::TcpStream;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async, tungstenite::Message};
-use crate::market_data::{candle::Candle, constans::HYPERLIQUID_WS_URL, hyperliquid::protocols::inbound::InboundMessage};
+use crate::market_data::{constans::HYPERLIQUID_WS_URL, hyperliquid::protocols::inbound::InboundMessage, types::candle::Candle};
 
 
 

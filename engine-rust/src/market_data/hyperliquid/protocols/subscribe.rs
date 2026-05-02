@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-use crate::market_data::candle::COINS;
-use crate::market_data::candle::Interval;
+use crate::market_data::types::candle::COINS;
+use crate::market_data::types::candle::CandleKey;
 
 
 #[derive(Deserialize,Serialize)]
@@ -16,9 +16,9 @@ pub struct SubscribeToChannelReq
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum SubscriptionData {
 
-    Candle {
-        coin: COINS,
-        interval: Interval,
+    Candle 
+    {
+        candle_key: CandleKey
     },
     L2Book {
         coin: COINS,
@@ -38,7 +38,7 @@ pub enum Method{
 }
 impl SubscribeToChannelReq
 {
-    pub fn new(method: Method, sub_data :SubscriptionData)->SubscribeToChannelReq
+    pub fn new(method: Method, sub_data : SubscriptionData)->SubscribeToChannelReq
     {
        let req = SubscribeToChannelReq{
         method: method,

@@ -1,5 +1,4 @@
 use serde::{Serialize, Deserialize};
-
 use crate::market_data::{hyperliquid::protocols::data_models::candle::{CandleHL}};
 
 #[derive(Debug, Clone)]
@@ -43,13 +42,13 @@ impl TryFrom<CandleHL> for Candle
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum Interval {
     #[serde(rename = "1m")]
-    OneMinute,
+    M1,
     #[serde(rename = "5m")]
-    FiveMinutes,
+    M5,
     #[serde(rename = "15m")]
-    FifteenMinutes,
+    M15,
     #[serde(rename = "1h")]
-    OneHour,
+    H1,
 }
 
 // This function will match the inverval with the string
@@ -58,10 +57,10 @@ impl TryFrom<String> for Interval {
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
         match value.as_str() {
-            "1m" => Ok(Interval::OneMinute),
-            "5m" => Ok(Interval::FiveMinutes),
-            "15m" => Ok(Interval::FifteenMinutes),
-            "1h" => Ok(Interval::OneHour),
+            "1m" => Ok(Interval::M1),
+            "5m" => Ok(Interval::M5),
+            "15m" => Ok(Interval::M15),
+            "1h" => Ok(Interval::H1),
             other => Err(format!("unknown interval: {}", other)),
         }
     }
@@ -88,6 +87,27 @@ impl TryFrom<String> for COINS {
             "ETH" => Ok(COINS::ETH),
             other => Err(format!("unknown coin: {}", other)),
         }
+    }
+}
+
+
+// Candle Key for subscription and Data analysis
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct CandleKey
+{
+    coin: COINS,
+    interval: Interval
+}
+
+impl CandleKey{
+    pub fn new(coin: COINS, interval:Interval) -> Result<CandleKey, Box<dyn std::error::Error>>
+    {
+        let candle_key = CandleKey
+        {
+            coin: coin,
+            interval: interval
+        };
+        Ok(candle_key)
     }
 }
 

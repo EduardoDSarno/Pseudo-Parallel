@@ -1,7 +1,7 @@
-use crate::market_data::{candle::COINS, hyperliquid::{client::run_hyperliquid_client, protocols::{data_models::candle::Interval, subscribe::{
+use crate::market_data::{hyperliquid::{client::run_hyperliquid_client, protocols::subscribe::{
     Method,
     SubscribeToChannelReq, SubscriptionData,
-}}}};
+}}, types::candle::{COINS, CandleKey, Interval}};
 mod market_data;
 
 
@@ -10,11 +10,8 @@ mod market_data;
 async fn main()->Result<(), Box<dyn std::error::Error>> 
 {
     
-    let sub_data = SubscriptionData::Candle 
-    {
-        coin: COINS::HYPE,
-        interval: Interval::FiveMinutes,
-    };
+    let candle_key = CandleKey::new(COINS::HYPE, Interval::M5)?;
+    let sub_data = SubscriptionData::Candle{candle_key};
 
     let sub = SubscribeToChannelReq::new(Method::SUBSCRIBE, sub_data);
 
