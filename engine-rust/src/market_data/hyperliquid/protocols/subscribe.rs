@@ -18,6 +18,7 @@ pub enum SubscriptionData {
 
     Candle 
     {
+        #[serde(flatten)]
         candle_key: CandleKey
     },
     L2Book {

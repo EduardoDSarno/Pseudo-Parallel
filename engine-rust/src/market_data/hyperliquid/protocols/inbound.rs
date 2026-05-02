@@ -7,7 +7,8 @@ use crate::market_data::hyperliquid::protocols::{data_models::candle::CandleHL, 
 pub enum InboundMessage
 {
     SubscriptionResponse(SubscriptionResponseData),
-    Candle(CandleHL)
+    Candle(CandleHL),
+    Error(String),
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

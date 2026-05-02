@@ -67,7 +67,8 @@ impl TryFrom<String> for Interval {
 }
 
 /*Enumerate coin strings into our hard values */
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+
 #[serde(rename_all = "UPPERCASE")]
 pub enum COINS
 {
@@ -92,7 +93,7 @@ impl TryFrom<String> for COINS {
 
 
 // Candle Key for subscription and Data analysis
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct CandleKey
 {
     coin: COINS,
@@ -100,14 +101,9 @@ pub struct CandleKey
 }
 
 impl CandleKey{
-    pub fn new(coin: COINS, interval:Interval) -> Result<CandleKey, Box<dyn std::error::Error>>
+    pub fn new(coin: COINS, interval: Interval) -> CandleKey
     {
-        let candle_key = CandleKey
-        {
-            coin: coin,
-            interval: interval
-        };
-        Ok(candle_key)
+        CandleKey { coin, interval }
     }
 }
 

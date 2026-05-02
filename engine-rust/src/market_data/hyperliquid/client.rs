@@ -97,11 +97,11 @@ fn match_response(message_response: Result<InboundMessage, serde_json::Error>) -
             println!("{:#?}", candle);
             Ok(())
         }
-        Err(err) => {
-            // failed to parse JSON
-            println!("Failed to parse JSON, message: {:#}", err);
-            Err(Box::new(err))
-       
+        Ok(InboundMessage::Error(msg)) => 
+        {
+            println!("Server error: {}", msg);
+            Err(msg.into())
         }
+        Err(e) =>  Err(e.into())
     }
 }

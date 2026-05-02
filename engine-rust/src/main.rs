@@ -10,7 +10,7 @@ mod market_data;
 async fn main()->Result<(), Box<dyn std::error::Error>> 
 {
     
-    let candle_key = CandleKey::new(COINS::HYPE, Interval::M5)?;
+    let candle_key = CandleKey::new(COINS::HYPE, Interval::M5);
     let sub_data = SubscriptionData::Candle{candle_key};
 
     let sub = SubscribeToChannelReq::new(Method::SUBSCRIBE, sub_data);
