@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Candle {
+pub struct CandleHL {
     #[serde(rename = "t")]
     pub open_time_ms: u64, // open millis
     

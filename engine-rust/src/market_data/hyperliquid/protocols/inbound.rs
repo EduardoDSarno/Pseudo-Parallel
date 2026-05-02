@@ -1,13 +1,13 @@
 use serde::{Deserialize, Serialize};
 
-use crate::market_data::hyperliquid::protocols::{data_models::candle::Candle, subscribe::{Method, SubscriptionData}};
+use crate::market_data::hyperliquid::protocols::{data_models::candle::CandleHL, subscribe::{Method, SubscriptionData}};
 
 #[derive(Deserialize, Serialize)]
 #[serde(tag = "channel", content = "data", rename_all = "camelCase")]
 pub enum InboundMessage
 {
     SubscriptionResponse(SubscriptionResponseData),
-    Candle(Candle)
+    Candle(CandleHL)
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

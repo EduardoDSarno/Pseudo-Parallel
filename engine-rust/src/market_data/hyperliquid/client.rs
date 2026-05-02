@@ -2,7 +2,7 @@
 use futures_util::{SinkExt, StreamExt};
 use tokio::net::TcpStream;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async, tungstenite::Message};
-use crate::market_data::{constans::HYPERLIQUID_WS_URL, hyperliquid::protocols::inbound::InboundMessage};
+use crate::market_data::{candle::Candle, constans::HYPERLIQUID_WS_URL, hyperliquid::protocols::inbound::InboundMessage};
 
 
 
@@ -50,7 +50,7 @@ fn read_message(result: Result<Message, tokio_tungstenite::tungstenite::Error>) 
         Ok(Message::Text(text)) => 
         {
             let deserialized = serde_json::from_str::<InboundMessage>(&text);
-            match_response(deserialized);
+            let _= match_response(deserialized);
             true
         }
         // Tokio tungstain handles automatically
@@ -80,26 +80,28 @@ fn read_message(result: Result<Message, tokio_tungstenite::tungstenite::Error>) 
 }
 
 /* THis function is soly responsible for matching the message with one of our inbounds streams */
-fn match_response(message_response: Result<InboundMessage, serde_json::Error>)
+fn match_response(message_response: Result<InboundMessage, serde_json::Error>) -> Result<(), Box<dyn std::error::Error>>
 {
 
     match message_response
     {
         Ok(InboundMessage::SubscriptionResponse(response))=>
         {
-            println!("{:?} Successeful. Steam: {:?}",response.method, response.subscription)
+            println!("{:?} Successeful. Steam: {:?}",response.method, response.subscription);
+            Ok(())
         }
 
-        Ok(InboundMessage::Candle(candle)) => 
+        Ok(InboundMessage::Candle(candle_hl)) => 
         {
-            // candle.open_price
-            // candle.close_price
-            // todo!()
-            println!("{:#?}", candle)
+            let candle = Candle::try_from(candle_hl)?;
+            println!("{:#?}", candle);
+            Ok(())
         }
         Err(err) => {
             // failed to parse JSON
             println!("Failed to parse JSON, message: {:#}", err);
+            Err(Box::new(err))
+       
         }
     }
 }
