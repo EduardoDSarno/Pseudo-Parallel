@@ -2,6 +2,7 @@ use serde::{Serialize, Deserialize};
 use crate::market_data::{hyperliquid::protocols::data_models::candle::{CandleHL}};
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct Candle {
     pub open_time_ms: u64,
     pub close_time_ms: u64,

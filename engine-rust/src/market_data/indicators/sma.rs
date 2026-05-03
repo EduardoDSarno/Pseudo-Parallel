@@ -1,7 +1,10 @@
 use std::collections::VecDeque;
 use crate::market_data::{constans::MAX_LENGTH_CANDLE_BUFFER, types::candle::Candle};
 
-pub fn calculate_sma(buf: &VecDeque<Candle>) -> Option<f64> 
+// It will get the close prices from the candles isnide VecDeque in the Hashmap buffer 
+// and it will add them and divide by the quantity of candles giving us the
+// SIMPLE MOVING AVAREAGE
+pub fn _calculate_sma(buf: &VecDeque<Candle>) -> Option<f64> 
 {
     if buf.len() < MAX_LENGTH_CANDLE_BUFFER 
     {

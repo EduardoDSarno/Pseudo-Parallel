@@ -2,17 +2,21 @@
 use futures_util::{SinkExt, StreamExt};
 use tokio::net::TcpStream;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async, tungstenite::Message};
-use crate::market_data::{constans::HYPERLIQUID_WS_URL, engine::Engine, hyperliquid::protocols::inbound::InboundMessage, types::candle::Candle};
+use crate::market_data::{constans::HYPERLIQUID_WS_URL, engine::Engine, hyperliquid::protocols::{inbound::InboundMessage, subscribe::SubscribeToChannelReq}, types::candle::Candle};
 
 
 
-pub async fn run_hyperliquid_client(message: String, engine: &mut Engine) -> Result<(), Box<dyn std::error::Error>> 
+pub async fn run_hyperliquid_client(subs: Vec<SubscribeToChannelReq>, engine: &mut Engine) -> Result<(), Box<dyn std::error::Error>> 
 {
     // connect with hype Ws
     let mut ws_stream = connect_ws_hl().await?;
 
-    // send message 
-    ws_stream.send(Message::Text(message)).await?;
+    // Loop through messages, serialize and send it
+    for sub in &subs 
+    {
+        let msg = serde_json::to_string(sub)?;
+        ws_stream.send(Message::Text(msg)).await?;
+    }
 
 
     while let Some(result) =  ws_stream.next().await
@@ -94,6 +98,7 @@ fn match_response(message_response: Result<InboundMessage, serde_json::Error>, e
         Ok(InboundMessage::Candle(candle_hl)) => 
         {
             let candle = Candle::try_from(candle_hl)?;
+            println!("Receiving Candle {:#?}", candle.interval);
             engine.handle_candle(candle);
             Ok(())
         }

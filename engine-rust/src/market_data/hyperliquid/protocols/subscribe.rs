@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::market_data::types::candle::COINS;
 use crate::market_data::types::candle::CandleKey;
+use crate::market_data::types::candle::Interval;
 
 
 #[derive(Deserialize,Serialize)]
@@ -47,5 +48,18 @@ impl SubscribeToChannelReq
        };
        req
     }
+}
+
+/* This function is a wrapper to be  to subscribe for a hyperliquid candle stream*/
+pub fn subscribe_candle(coin: COINS, interval: Interval) -> SubscribeToChannelReq 
+{
+    SubscribeToChannelReq::new
+    (
+        Method::SUBSCRIBE,
+        SubscriptionData::Candle 
+        {
+            candle_key: CandleKey::new(coin, interval),
+        },
+    )
 }
 
