@@ -1,5 +1,5 @@
 use std::collections::{HashMap, VecDeque};
-use crate::market_data::{constans::{MAX_LENGTH_CANDLE_BUFFER}, types::candle::{Candle, CandleKey}};
+use crate::market_data::{constans::{MAX_LENGTH_CANDLE_BUFFER}, types::candle::{Candle, CandleKey}, indicators::{atr::calculate_average_true_range}};
 
 // THis struct will be responsible for handling Candle data and to store in memory 
 // the current data we need
@@ -54,6 +54,14 @@ impl Engine
                 if buf.len() > MAX_LENGTH_CANDLE_BUFFER 
                 {
                     buf.pop_front(); // remove from the front of Circle Queue
+                }
+
+                // Buffer is full — calculate indicators
+                if buf.len() == MAX_LENGTH_CANDLE_BUFFER {
+                    if let Some(atr) = calculate_average_true_range(buf) 
+                    {
+                        println!("ATR [{:?} {:?}]: {:.4}", candle_key.coin, candle_key.interval, atr);
+                    }
                 }
             }
         }

@@ -6,7 +6,7 @@ use crate::market_data::{hyperliquid::protocols::data_models::candle::{CandleHL}
 pub struct Candle {
     pub open_time_ms: u64,
     pub close_time_ms: u64,
-    pub coin: COINS,
+    pub coin: Coins,
     pub interval: Interval,
     pub open_price: f64,
     pub close_price: f64,
@@ -27,7 +27,7 @@ impl TryFrom<CandleHL> for Candle
         {
             open_time_ms: json.open_time_ms,
             close_time_ms: json.close_time_ms,
-            coin:COINS::try_from(json.coin)? , // Result
+            coin:Coins::try_from(json.coin)? , // Result
             interval: Interval::try_from(json.interval)?, // Result
             open_price: json.open_price.parse()?,
             close_price: json.close_price.parse()?,
@@ -71,7 +71,7 @@ impl TryFrom<String> for Interval {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
 
 #[serde(rename_all = "UPPERCASE")]
-pub enum COINS
+pub enum Coins
 {
     HYPE,
     BTC,
@@ -79,14 +79,14 @@ pub enum COINS
 }
 
 /* Implementation to handle conversion */
-impl TryFrom<String> for COINS {
+impl TryFrom<String> for Coins {
     type Error = String;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
         match value.as_str() {
-            "HYPE" => Ok(COINS::HYPE),
-            "BTC" => Ok(COINS::BTC),
-            "ETH" => Ok(COINS::ETH),
+            "HYPE" => Ok(Coins::HYPE),
+            "BTC" => Ok(Coins::BTC),
+            "ETH" => Ok(Coins::ETH),
             other => Err(format!("unknown coin: {}", other)),
         }
     }
@@ -97,12 +97,12 @@ impl TryFrom<String> for COINS {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct CandleKey
 {
-    coin: COINS,
-    interval: Interval
+    pub coin: Coins,
+    pub interval: Interval
 }
 
 impl CandleKey{
-    pub fn new(coin: COINS, interval: Interval) -> CandleKey
+    pub fn new(coin: Coins, interval: Interval) -> CandleKey
     {
         CandleKey { coin, interval }
     }

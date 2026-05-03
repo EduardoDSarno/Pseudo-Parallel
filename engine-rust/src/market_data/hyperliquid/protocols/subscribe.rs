@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::market_data::types::candle::COINS;
+use crate::market_data::types::candle::Coins;
 use crate::market_data::types::candle::CandleKey;
 use crate::market_data::types::candle::Interval;
 
@@ -23,10 +23,10 @@ pub enum SubscriptionData {
         candle_key: CandleKey
     },
     L2Book {
-        coin: COINS,
+        coin: Coins,
     },
     Trades {
-        coin: COINS,
+        coin: Coins,
     },
     UserEvents {
         user: String,
@@ -51,7 +51,7 @@ impl SubscribeToChannelReq
 }
 
 /* This function is a wrapper to be  to subscribe for a hyperliquid candle stream*/
-pub fn subscribe_candle(coin: COINS, interval: Interval) -> SubscribeToChannelReq 
+pub fn subscribe_candle(coin: Coins, interval: Interval) -> SubscribeToChannelReq 
 {
     SubscribeToChannelReq::new
     (
