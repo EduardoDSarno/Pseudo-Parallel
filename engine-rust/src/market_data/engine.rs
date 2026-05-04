@@ -1,5 +1,5 @@
 use std::collections::{HashMap, VecDeque};
-use crate::market_data::{constans::{MAX_LENGTH_CANDLE_BUFFER}, types::candle::{Candle, CandleKey}, indicators::{atr::calculate_average_true_range}};
+use crate::market_data::{constans::MAX_LENGTH_CANDLE_BUFFER, indicators::atr::calculate_average_true_range, signal::event::BreakoutAlert, types::candle::{Candle, CandleKey}};
 
 // THis struct will be responsible for handling Candle data and to store in memory 
 // the current data we need
@@ -25,7 +25,7 @@ impl Engine
      from it and it will insert it self on the hashmap when new candle is found
      else it will just update the last seen 
     */
-    pub fn handle_candle(&mut self, candle: Candle)
+    pub fn handle_candle(&mut self, candle: Candle) -> Option<Candle>
     {
 
         let candle_key = CandleKey::new(candle.coin.clone(), candle.interval.clone());
@@ -63,10 +63,26 @@ impl Engine
                         println!("ATR [{:?} {:?}]: {:.4}", candle_key.coin, candle_key.interval, atr);
                     }
                 }
+                return Some(candle);
+            }
+            else 
+            {
+                // If now new candle, just update last seen
+                self.last_seen.insert(candle_key, candle);
+                return None    
             }
         }
-        // if does not exist insert, is does exits replace
-        self.last_seen.insert(candle_key, candle);
+        else 
+        {
+            // If no candle match add, return None
+            self.last_seen.insert(candle_key, candle);
+            return None;
+        }
+    }
+
+    pub fn evaluate_breakout(&mut self, event: &Candle) -> Option<BreakoutAlert>
+    {
+        None
     }
 }
 
