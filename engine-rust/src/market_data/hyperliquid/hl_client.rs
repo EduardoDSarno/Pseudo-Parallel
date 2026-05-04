@@ -39,7 +39,7 @@ async fn connect_ws_hl() -> Result<WebSocketStream<MaybeTlsStream<TcpStream>>, B
     await.
     expect("Connection Failed");
 
-    println!("Connected with status: {}", response.status());
+    tracing::info!(status = %response.status(), "Connected to Hyperliquid WS");
 
     Ok(ws_stream)
 }
@@ -60,22 +60,22 @@ fn read_message(result: Result<Message, tokio_tungstenite::tungstenite::Error>, 
         // Tokio tungstain handles automatically
         Ok(Message::Ping(_message)) =>
         {
-            println!("Received ping");
+            tracing::trace!("Received ping");
             true
         }
         Ok(Message::Pong(_message))=>
         {
-            println!("Received Pong");
+            tracing::trace!("Received pong");
             true
         }
         Ok(Message::Close(close_frame)) => 
         {
-            println!("WebSocket closed: {:?}", close_frame);
+            tracing::warn!(frame = ?close_frame, "WebSocket closed");
             false
         }
         _ => 
         {
-            println!("Received an unexpected WebSocket message type or encountered an error in the stream.");
+            tracing::warn!("Unexpected WS message type");
             true
         },
 
@@ -91,7 +91,7 @@ fn match_response(message_response: Result<InboundMessage, serde_json::Error>, e
     {
         Ok(InboundMessage::SubscriptionResponse(response))=>
         {
-            println!("{:?} Successeful. Steam: {:?}",response.method, response.subscription);
+            tracing::info!(method = ?response.method, subscription = ?response.subscription, "Subscription confirmed");
             Ok(())
         }
 
@@ -103,7 +103,7 @@ fn match_response(message_response: Result<InboundMessage, serde_json::Error>, e
         }
         Ok(InboundMessage::Error(msg)) => 
         {
-            println!("Server error: {}", msg);
+            tracing::error!(msg = %msg, "Server error");
             Err(msg.into())
         }
         Err(e) =>  Err(e.into())

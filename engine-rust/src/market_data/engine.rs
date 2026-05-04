@@ -48,7 +48,7 @@ impl Engine
 
                 // push last because canlde is the one that just started
                 // to its map, clone so it does not takes ownership
-                println!("New Candle Added: {:#?}", &to_push);
+                tracing::debug!(coin = ?to_push.coin, interval = ?to_push.interval, open_time = to_push.open_time_ms, "Candle closed and added to buffer");
                 buf.push_back(to_push);
 
                 if buf.len() > MAX_LENGTH_CANDLE_BUFFER 
@@ -82,7 +82,7 @@ impl Engine
 
         if buf.len() < MAX_LENGTH_CANDLE_BUFFER 
         {
-            // println!("Buffer not filled. Number of Items : {:?}\n", buf.len());
+            tracing::debug!(len = buf.len(), max = MAX_LENGTH_CANDLE_BUFFER, "Buffer warming up");
             return None;
         }
     
@@ -93,6 +93,8 @@ impl Engine
         let atr = calculate_average_true_range(&atr_input)?;
         // Calculate TR from last candle
         let tr_last = calculate_true_range(&buf[SECOND_TO_LAST_CANDLE_INDEX], &buf[LAST_CANDLE_INDEX]);
+
+        tracing::debug!(coin = ?key.coin, interval = ?key.interval, tr_last = tr_last, atr = atr, ratio = tr_last / atr, "ATR evaluated");
 
         // detect spike 
         if tr_last > ATR_BREAKOUT_RATIO * atr

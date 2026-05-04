@@ -27,7 +27,7 @@ pub fn handle_candle_event(engine: &mut Engine, candle: Candle)
     {
         if let Some(alert) = engine.evaluate_breakout(&closed) 
         {
-            println!("BREAKOUT: {:?}", alert);
+            tracing::info!(coin = ?alert.key.coin, interval = ?alert.key.interval, event = ?alert.event, "BREAKOUT detected");
         }
     }
 }

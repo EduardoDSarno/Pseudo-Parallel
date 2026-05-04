@@ -1,12 +1,13 @@
 use crate::market_data::{engine::Engine, hyperliquid::{hl_client::run_hyperliquid_client, protocols::subscribe::{ subscribe_candle,}}, 
             types::candle::{Coins, Interval}};
 mod market_data;
-
-
+mod log;
 
 #[tokio::main]
 async fn main()->Result<(), Box<dyn std::error::Error>> 
 {
+    let _guard = log::init_logging();
+    tracing::info!("Engine starting");
 
     let mut engine = Engine::new();
 

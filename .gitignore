@@ -15,5 +15,8 @@ main
 .env.*
 !.env.example
 
+# Logs
+/logs
+
 # OS
 .DS_Store
