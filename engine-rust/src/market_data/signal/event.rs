@@ -27,7 +27,21 @@ pub fn handle_candle_event(engine: &mut Engine, candle: Candle)
     {
         if let Some(alert) = engine.evaluate_breakout(&closed) 
         {
-            tracing::info!(coin = ?alert.key.coin, interval = ?alert.key.interval, event = ?alert.event, "BREAKOUT detected");
+            
+            let Event::ATR { prev_atr, breakout_atr } = alert.event;
+            
+            // Print debug statement for Break out Detection
+            tracing::info!
+            (
+                coin = ?alert.key.coin,
+                interval = ?alert.key.interval,
+                atr = prev_atr,
+                tr = breakout_atr,
+                difference = breakout_atr - prev_atr,
+                ratio = breakout_atr / prev_atr,
+                "BREAKOUT detected"
+            );
+            
         }
     }
 }
