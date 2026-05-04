@@ -12,30 +12,15 @@ pub struct BreakoutAlert
     pub event: Event,
 }
 
-#[derive(Debug)]
-pub enum MarketEvent {
-    Candle(Candle),
 
-    // future
-    // Trade(Trade),
-    // L2Update(L2Book),
-}
-
-pub fn handle_events(engine: &mut Engine, event: MarketEvent) 
+pub fn handle_candle_event(engine: &mut Engine, candle: Candle) 
 {
-    match event 
+    if let Some(closed) = engine.handle_candle(candle) 
     {
-        MarketEvent::Candle(candle) => 
+        if let Some(alert) = engine.evaluate_breakout(&closed) 
         {
-            if let Some(closed) = engine.handle_candle(candle) 
-            {
-                if let Some(alert) = engine.evaluate_breakout(&closed) 
-                {
-                    println!("BREAKOUT: {:?}", alert);
-                }
-            }
+            println!("BREAKOUT: {:?}", alert);
         }
-        // MarketEvent::Trade(trade) => { ... }
     }
 }
 

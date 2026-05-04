@@ -2,7 +2,7 @@
 use futures_util::{SinkExt, StreamExt};
 use tokio::net::TcpStream;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async, tungstenite::Message};
-use crate::market_data::{constans::HYPERLIQUID_WS_URL, engine::Engine, hyperliquid::protocols::{inbound::InboundMessage, subscribe::SubscribeToChannelReq}, signal::event::{MarketEvent, handle_events}, types::candle::Candle};
+use crate::market_data::{constans::HYPERLIQUID_WS_URL, engine::Engine, hyperliquid::protocols::{inbound::InboundMessage, subscribe::SubscribeToChannelReq}, signal::event::handle_candle_event, types::candle::Candle};
 
 
 
@@ -98,7 +98,7 @@ fn match_response(message_response: Result<InboundMessage, serde_json::Error>, e
         Ok(InboundMessage::Candle(candle_hl)) => 
         {
             let candle = Candle::try_from(candle_hl)?;
-            handle_events(engine, MarketEvent::Candle(candle));
+            handle_candle_event(engine, candle);
             Ok(())
         }
         Ok(InboundMessage::Error(msg)) => 
