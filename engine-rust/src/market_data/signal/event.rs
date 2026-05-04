@@ -1,4 +1,4 @@
-use crate::market_data::{engine::Engine, types::candle::{Candle, CandleKey, Coins, Interval}};
+use crate::market_data::{engine::Engine, types::candle::{Candle, CandleKey}};
 
 #[derive(Debug)]
 pub enum Event
@@ -12,9 +12,17 @@ pub struct BreakoutAlert
     pub event: Event,
 }
 
+impl BreakoutAlert {
+    pub fn new(key: CandleKey, event: Event) -> Self 
+    {
+        BreakoutAlert { key, event }
+    }
+}
+
 
 pub fn handle_candle_event(engine: &mut Engine, candle: Candle) 
 {
+    
     if let Some(closed) = engine.handle_candle(candle) 
     {
         if let Some(alert) = engine.evaluate_breakout(&closed) 
@@ -23,4 +31,5 @@ pub fn handle_candle_event(engine: &mut Engine, candle: Candle)
         }
     }
 }
+
 

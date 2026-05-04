@@ -3,7 +3,7 @@ use crate::market_data::types::candle::Candle;
 
 /* This function calcualte the true range of a candle putting in consideration 
     possible gaps in price duee to low liquidity */
-fn calculate_true_range(prev_candle: &Candle, curr_candle: &Candle) -> f64
+pub fn calculate_true_range(prev_candle: &Candle, curr_candle: &Candle) -> f64
 {
    let current_candle_range = curr_candle.high_price - curr_candle.low_price;
    let gap_up_range   = (curr_candle.high_price - prev_candle.close_price).abs();
@@ -18,7 +18,7 @@ fn calculate_true_range(prev_candle: &Candle, curr_candle: &Candle) -> f64
 /* This function will be used to calculate the ATR, by simply getting a vec of candle
      references, looping through them, getting each TR, and calculating the Mean with all
      of the TR's */
-pub fn calculate_average_true_range(candle_buffer : &VecDeque<Candle>) ->Option<f64>
+pub fn calculate_average_true_range(candle_buffer : &Vec<Candle>) ->Option<f64>
 {
     if candle_buffer.len() < 2 
     { 

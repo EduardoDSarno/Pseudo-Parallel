@@ -1,5 +1,5 @@
 use std::collections::{HashMap, VecDeque};
-use crate::market_data::{constans::MAX_LENGTH_CANDLE_BUFFER, indicators::atr::calculate_average_true_range, signal::event::BreakoutAlert, types::candle::{Candle, CandleKey}};
+use crate::market_data::{constans::*, indicators::atr::{calculate_average_true_range, calculate_true_range}, signal::event::{BreakoutAlert, Event}, types::candle::{Candle, CandleKey}};
 
 // THis struct will be responsible for handling Candle data and to store in memory 
 // the current data we need
@@ -56,13 +56,7 @@ impl Engine
                     buf.pop_front(); // remove from the front of Circle Queue
                 }
 
-                // Buffer is full — calculate indicators
-                if buf.len() == MAX_LENGTH_CANDLE_BUFFER {
-                    if let Some(atr) = calculate_average_true_range(buf) 
-                    {
-                        println!("ATR [{:?} {:?}]: {:.4}", candle_key.coin, candle_key.interval, atr);
-                    }
-                }
+               
                 return Some(candle);
             }
             else 
@@ -80,9 +74,39 @@ impl Engine
         }
     }
 
-    pub fn evaluate_breakout(&mut self, event: &Candle) -> Option<BreakoutAlert>
+
+    pub fn evaluate_breakout(&self, candle: &Candle) -> Option<BreakoutAlert>
     {
+        let key = CandleKey::create_key_from_candle(candle);
+        let buf = self.buffers.get(&key)?;
+
+        if buf.len() < MAX_LENGTH_CANDLE_BUFFER 
+        {
+            // println!("Buffer not filled. Number of Items : {:?}\n", buf.len());
+            return None;
+        }
+    
+        // Buffer is full — calculate indicators
+        
+        // calculate ATR using just valid candles (LAST_CANDLE_INDEX) lenght
+        let atr_input: Vec<Candle> = buf.iter().take(LAST_CANDLE_INDEX).cloned().collect();
+        let atr = calculate_average_true_range(&atr_input)?;
+        // Calculate TR from last candle
+        let tr_last = calculate_true_range(&buf[SECOND_TO_LAST_CANDLE_INDEX], &buf[LAST_CANDLE_INDEX]);
+
+        // detect spike 
+        if tr_last > ATR_BREAKOUT_RATIO * atr
+        {
+            // fire break 
+            let event = Event::ATR { prev_atr: atr, breakout_atr: tr_last };
+            let breakout_alert = BreakoutAlert::new(key, event);
+            
+            return Some(breakout_alert);
+        }
+    
+        // Returst None if Buffer is not filled
         None
     }
+
 }
 

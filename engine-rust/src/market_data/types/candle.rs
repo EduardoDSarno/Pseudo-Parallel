@@ -106,5 +106,13 @@ impl CandleKey{
     {
         CandleKey { coin, interval }
     }
+
+    pub fn create_key_from_candle(candle: &Candle) -> CandleKey
+    {
+
+       let candle_key = CandleKey::new(candle.coin.clone(), candle.interval.clone());
+       candle_key
+
+    }
 }
 
