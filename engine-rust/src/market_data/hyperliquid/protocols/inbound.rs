@@ -18,3 +18,4 @@ pub struct SubscriptionResponseData
     pub method: Method,
     pub subscription: SubscriptionData,
 }
+

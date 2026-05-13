@@ -30,7 +30,9 @@ pub enum SubscriptionData {
     },
     UserEvents {
         user: String,
-    },
+    }, 
+
+
 }
 #[derive(Deserialize,Serialize, Debug, Clone,)]
 #[serde(rename_all = "lowercase")]
