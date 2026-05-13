@@ -34,14 +34,17 @@ impl CandleSnapshotRequest
     }
 }
 
-// Alaias for getting our Rest Response
-pub type CandleSnapshotResponse = Vec<CandleHL>;
+
+pub enum RestResponse 
+{
+    CandleSnapshot(Vec<Candle>),
+}
 
 /* This function has the job of receving the INbound message from Hyperliquid and converting the HL_Candles in Json
     to our correct typed candles so we can use the data */
 pub fn parse_snapshot_to_candles(json: &str) -> Result<Vec<Candle>, Box<dyn std::error::Error>>
 {
-    let candles_hl:CandleSnapshotResponse = serde_json::from_str(json)?;
+    let candles_hl:Vec<CandleHL> = serde_json::from_str(json)?;
     let mut candles : Vec<Candle> = Vec::new();
 
     for candle_hl in candles_hl 

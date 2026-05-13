@@ -1,5 +1,6 @@
 // use serde::{Serialize, Deserialize};
-pub const HYPERLIQUID_WS_URL: &str = "wss://api.hyperliquid.xyz/ws";
+pub const HYPERLIQUID_WS_URL:   &str = "wss://api.hyperliquid.xyz/ws";
+pub const HYPERLIQUID_REST_URL: &str = "https://api.hyperliquid.xyz/info";
 
 pub const MAX_LENGTH_CANDLE_BUFFER: usize    = 15;
 pub const LAST_CANDLE_INDEX: usize           = MAX_LENGTH_CANDLE_BUFFER - 1;
