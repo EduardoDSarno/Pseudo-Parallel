@@ -110,5 +110,39 @@ impl Engine
         None
     }
 
+    /* This function has the job of seeding our The candle data with the historical previous  MAX_LENGTH_CANDLE_BUFFER
+        candles, so it becomes a hot start insated of a cold one*/
+    pub fn seed_canldes(&mut self, mut candles: VecDeque<Candle>) -> Result<(), String>
+    {
+        if candles.is_empty()
+        {
+            return Err("cannot seed engine with empty candle buffer".to_string());
+        }
+
+        if candles.len() < MAX_LENGTH_CANDLE_BUFFER
+        {
+            return Err(format!(
+                "cannot seed engine with {} candles, expected at least {}",
+                candles.len(),
+                MAX_LENGTH_CANDLE_BUFFER
+            ));
+        }
+
+        let candle_key = CandleKey::new(
+            candles[0].coin.clone(),
+            candles[0].interval.clone(),
+        );
+
+        // Using a guard to make sure we just have the exact amount of candles we want
+        while candles.len() > MAX_LENGTH_CANDLE_BUFFER
+        {
+            candles.pop_front();
+        }
+
+        // overwrites or creates our data for candles for the respective candle_key
+        self.buffers.insert(candle_key, candles);
+        Ok(())
+    }
+
 }
 

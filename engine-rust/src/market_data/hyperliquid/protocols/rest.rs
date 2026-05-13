@@ -1,6 +1,6 @@
 use serde::{Serialize, Deserialize};
 
-use crate::market_data::{hyperliquid::protocols::data_models::candle::{CandleHL}, types::candle::{Candle, CandleKey}};
+use crate::market_data::{constans::{H1_INTERVAL_MS, M15_INTERVAL_MS, M1_INTERVAL_MS, M5_INTERVAL_MS, MAX_LENGTH_CANDLE_BUFFER}, hyperliquid::protocols::data_models::candle::{CandleHL}, types::candle::{Candle, CandleKey, Interval}};
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(tag = "type", content = "req", rename_all = "camelCase")]
@@ -22,15 +22,43 @@ pub struct CandleSnapshotRequest
 
 impl CandleSnapshotRequest
 {
-    pub fn new(candle_key: CandleKey, start_time: u64, end_time: u64) -> CandleSnapshotRequest
+    pub fn new(candle_key: CandleKey, start_time: u64, end_time: u64) -> Result<CandleSnapshotRequest, String>
     {
-        let req = CandleSnapshotRequest
+        if end_time <= start_time
+        {
+            return Err("end_time must be greater than start_time".to_string());
+        }
+
+        let interval_ms = interval_to_ms(&candle_key.interval);
+        let minimum_window_ms = interval_ms * MAX_LENGTH_CANDLE_BUFFER as u64;
+        let requested_window_ms = end_time - start_time;
+
+        if requested_window_ms < minimum_window_ms
+        {
+            return Err(format!(
+                "candle snapshot window is too small: requested {} ms, minimum {} ms",
+                requested_window_ms,
+                minimum_window_ms
+            ));
+        }
+
+        Ok(CandleSnapshotRequest
         {
             candle_key: candle_key,
             start_time: start_time,
             end_time  : end_time
-        };
-        req
+        })
+    }
+}
+
+fn interval_to_ms(interval: &Interval) -> u64
+{
+    match interval
+    {
+        Interval::M1 => M1_INTERVAL_MS,
+        Interval::M5 => M5_INTERVAL_MS,
+        Interval::M15 => M15_INTERVAL_MS,
+        Interval::H1 => H1_INTERVAL_MS,
     }
 }
 
