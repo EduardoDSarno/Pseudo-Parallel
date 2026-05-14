@@ -1,5 +1,4 @@
-use serde::{Serialize, Deserialize};
-use crate::market_data::{constans::{H1_INTERVAL_MS, M15_INTERVAL_MS, M1_INTERVAL_MS, M5_INTERVAL_MS}, hyperliquid::protocols::data_models::candle::{CandleHL}};
+use crate::market_data::{hyperliquid::protocols::data_models::candle::CandleHL, types::{Coins, Interval}};
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
@@ -36,99 +35,6 @@ impl TryFrom<CandleHL> for Candle
             volume: json.volume.parse()?,
             trade_count: json.trade_count,
         })
-    }
-}
-
-/* Enumerate intervals strings into hard values for easy use */
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub enum Interval {
-    #[serde(rename = "1m")]
-    M1,
-    #[serde(rename = "5m")]
-    M5,
-    #[serde(rename = "15m")]
-    M15,
-    #[serde(rename = "1h")]
-    H1,
-}
-
-/* this implementation has the goal of making the interval time in MS match our interval
-    Enums */
-impl Interval
-{
-    pub fn to_ms(&self) -> u64
-    {
-        match self
-        {
-            Interval::M1 => M1_INTERVAL_MS,
-            Interval::M5 => M5_INTERVAL_MS,
-            Interval::M15 => M15_INTERVAL_MS,
-            Interval::H1 => H1_INTERVAL_MS,
-        }
-    }
-}
-
-// This function will match the inverval with the string
-impl TryFrom<String> for Interval {
-    type Error = String;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        match value.as_str() {
-            "1m" => Ok(Interval::M1),
-            "5m" => Ok(Interval::M5),
-            "15m" => Ok(Interval::M15),
-            "1h" => Ok(Interval::H1),
-            other => Err(format!("unknown interval: {}", other)),
-        }
-    }
-}
-
-/*Enumerate coin strings into our hard values */
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
-
-#[serde(rename_all = "UPPERCASE")]
-pub enum Coins
-{
-    HYPE,
-    BTC,
-    ETH,
-}
-
-/* Implementation to handle conversion */
-impl TryFrom<String> for Coins {
-    type Error = String;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        match value.as_str() {
-            "HYPE" => Ok(Coins::HYPE),
-            "BTC" => Ok(Coins::BTC),
-            "ETH" => Ok(Coins::ETH),
-            other => Err(format!("unknown coin: {}", other)),
-        }
-    }
-}
-
-
-// Candle Key for subscription and Data analysis
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
-pub struct CandleKey
-{
-    pub coin: Coins,
-    pub interval: Interval
-}
-
-impl CandleKey{
-    pub fn new(coin: Coins, interval: Interval) -> CandleKey
-    {
-        CandleKey { coin, interval }
-    }
-
-    pub fn create_key_from_candle(candle: &Candle) -> CandleKey
-    {
-
-       let candle_key = CandleKey::new(candle.coin.clone(), candle.interval.clone());
-       candle_key
-
     }
 }
 
