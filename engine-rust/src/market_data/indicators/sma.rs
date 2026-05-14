@@ -1,5 +1,5 @@
 use std::collections::VecDeque;
-use crate::market_data::{constans::MAX_LENGTH_CANDLE_BUFFER, types::candle::Candle};
+use crate::market_data::{constans::MAX_LENGTH_CANDLE_BUFFER, types::Candle};
 
 // It will get the close prices from the candles isnide VecDeque in the Hashmap buffer 
 // and it will add them and divide by the quantity of candles giving us the

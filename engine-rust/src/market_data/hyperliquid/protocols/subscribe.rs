@@ -1,11 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::market_data::types::candle::Coins;
-use crate::market_data::types::candle::CandleKey;
-use crate::market_data::types::candle::Interval;
+use crate::market_data::types::{CandleKey, Coins, Interval};
 
 
-#[derive(Deserialize,Serialize)]
+#[derive(Deserialize,Serialize, Debug, Clone)]
 #[serde(rename_all = "lowercase")]
 pub struct SubscribeToChannelReq
 {
@@ -64,4 +62,3 @@ pub fn subscribe_candle(coin: Coins, interval: Interval) -> SubscribeToChannelRe
         },
     )
 }
-

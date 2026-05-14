@@ -1,6 +1,6 @@
 use serde::{Serialize, Deserialize};
 
-use crate::market_data::{constans::{MAX_LENGTH_CANDLE_BUFFER}, hyperliquid::protocols::data_models::candle::{CandleHL}, types::candle::{Candle, CandleKey}};
+use crate::market_data::{constans::MAX_LENGTH_CANDLE_BUFFER, hyperliquid::protocols::data_models::candle::CandleHL, types::{Candle, CandleKey}};
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(tag = "type", content = "req", rename_all = "camelCase")]
@@ -60,15 +60,16 @@ pub enum RestResponse
     to our correct typed candles so we can use the data */
 pub fn parse_snapshot_to_candles(json: &str) -> Result<Vec<Candle>, Box<dyn std::error::Error>>
 {
-    let candles_hl:Vec<CandleHL> = serde_json::from_str(json)?;
+    let candles_hl:Vec<CandleHL> = serde_json::from_str(json)
+        .inspect_err(|err| tracing::error!(error = %err, "Could not parse REST candle snapshot"))?;
     let mut candles : Vec<Candle> = Vec::new();
 
     for candle_hl in candles_hl 
     {
-        let candle = Candle::try_from(candle_hl)?;
+        let candle = Candle::try_from(candle_hl)
+            .inspect_err(|err| tracing::error!(error = %err, "Could not convert REST candle"))?;
         candles.push(candle);
     }
 
     Ok(candles)
 }
-

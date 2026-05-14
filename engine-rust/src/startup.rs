@@ -22,6 +22,7 @@ pub async fn seed_engine_from_rest(engine: &mut Engine, candle_keys: &[CandleKey
         // Each interval needs its own time window to get MAX_LENGTH_CANDLE_BUFFER candles.
         let start_time = end_time - (candle_key.interval.to_ms() * MAX_LENGTH_CANDLE_BUFFER as u64);
         let snapshot_request = CandleSnapshotRequest::new(candle_key.clone(), start_time, end_time)
+            .inspect_err(|err| tracing::error!(coin = ?candle_key.coin, interval = ?candle_key.interval, error = %err, "Candle snapshot request failed"))
             .map_err(|err| std::io::Error::new(std::io::ErrorKind::InvalidInput, err))?;
 
         requests.push(RestRequest::CandleSnapshot(snapshot_request));

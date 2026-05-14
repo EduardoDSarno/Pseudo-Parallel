@@ -1,4 +1,4 @@
-use crate::market_data::{engine::Engine, types::candle::{Candle, CandleKey}};
+use crate::market_data::{engine::Engine, types::{Candle, CandleKey}};
 
 #[derive(Debug)]
 pub enum Event

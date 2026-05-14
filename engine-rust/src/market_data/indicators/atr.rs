@@ -1,5 +1,5 @@
 use std::{collections::VecDeque};
-use crate::market_data::types::candle::Candle;
+use crate::market_data::types::Candle;
 
 /* This function calcualte the true range of a candle putting in consideration 
     possible gaps in price duee to low liquidity */
