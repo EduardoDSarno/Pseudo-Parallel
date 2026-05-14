@@ -1,6 +1,6 @@
 use serde::{Serialize, Deserialize};
 
-use crate::market_data::{constans::{H1_INTERVAL_MS, M15_INTERVAL_MS, M1_INTERVAL_MS, M5_INTERVAL_MS, MAX_LENGTH_CANDLE_BUFFER}, hyperliquid::protocols::data_models::candle::{CandleHL}, types::candle::{Candle, CandleKey, Interval}};
+use crate::market_data::{constans::{MAX_LENGTH_CANDLE_BUFFER}, hyperliquid::protocols::data_models::candle::{CandleHL}, types::candle::{Candle, CandleKey}};
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(tag = "type", content = "req", rename_all = "camelCase")]
@@ -29,7 +29,7 @@ impl CandleSnapshotRequest
             return Err("end_time must be greater than start_time".to_string());
         }
 
-        let interval_ms = interval_to_ms(&candle_key.interval);
+        let interval_ms = candle_key.interval.to_ms();
         let minimum_window_ms = interval_ms * MAX_LENGTH_CANDLE_BUFFER as u64;
         let requested_window_ms = end_time - start_time;
 
@@ -50,18 +50,6 @@ impl CandleSnapshotRequest
         })
     }
 }
-
-fn interval_to_ms(interval: &Interval) -> u64
-{
-    match interval
-    {
-        Interval::M1 => M1_INTERVAL_MS,
-        Interval::M5 => M5_INTERVAL_MS,
-        Interval::M15 => M15_INTERVAL_MS,
-        Interval::H1 => H1_INTERVAL_MS,
-    }
-}
-
 
 pub enum RestResponse 
 {

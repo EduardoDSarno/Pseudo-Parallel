@@ -1,5 +1,5 @@
 use serde::{Serialize, Deserialize};
-use crate::market_data::{hyperliquid::protocols::data_models::candle::{CandleHL}};
+use crate::market_data::{constans::{H1_INTERVAL_MS, M15_INTERVAL_MS, M1_INTERVAL_MS, M5_INTERVAL_MS}, hyperliquid::protocols::data_models::candle::{CandleHL}};
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
@@ -50,6 +50,22 @@ pub enum Interval {
     M15,
     #[serde(rename = "1h")]
     H1,
+}
+
+/* this implementation has the goal of making the interval time in MS match our interval
+    Enums */
+impl Interval
+{
+    pub fn to_ms(&self) -> u64
+    {
+        match self
+        {
+            Interval::M1 => M1_INTERVAL_MS,
+            Interval::M5 => M5_INTERVAL_MS,
+            Interval::M15 => M15_INTERVAL_MS,
+            Interval::H1 => H1_INTERVAL_MS,
+        }
+    }
 }
 
 // This function will match the inverval with the string

@@ -5,7 +5,7 @@ use reqwest::Client;
 use crate::market_data::{constans::HYPERLIQUID_REST_URL, hyperliquid::protocols::rest::{RestRequest, RestResponse, parse_snapshot_to_candles}};
 
 
-async fn post_info_request(request: RestRequest) -> Result<RestResponse, Box<dyn Error>>
+pub async fn send_single_info_request(request: RestRequest) -> Result<RestResponse, Box<dyn Error>>
 {
     let req_client = Client::new();
 
@@ -17,10 +17,23 @@ async fn post_info_request(request: RestRequest) -> Result<RestResponse, Box<dyn
 
     let body = response.text().await?;
 
-    parse_info_response(request, &body)
+    match_info_response(request, &body)
 }
 
-fn parse_info_response(request: RestRequest, body: &str) -> Result<RestResponse, Box<dyn Error>>
+pub async fn send_multiple_info_requests(requests: Vec<RestRequest>) -> Result<Vec<RestResponse>, Box<dyn Error>>
+{
+    let mut responses: Vec<RestResponse> = Vec::new();
+
+    for request in requests
+    {
+        let response = send_single_info_request(request).await?;
+        responses.push(response);
+    }
+
+    Ok(responses)
+}
+
+fn match_info_response(request: RestRequest, body: &str) -> Result<RestResponse, Box<dyn Error>>
 {
     match request
     {
