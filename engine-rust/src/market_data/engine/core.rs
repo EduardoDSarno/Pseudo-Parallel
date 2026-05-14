@@ -5,8 +5,16 @@ use crate::market_data::{constans::*, hyperliquid::protocols::rest::RestResponse
 // the current data we need
 pub struct Engine
 {
-    buffers: HashMap<CandleKey, VecDeque<Candle>>,
-    last_seen: HashMap<CandleKey, Candle>
+    pub(super) buffers: HashMap<CandleKey, VecDeque<Candle>>,
+    last_seen: HashMap<CandleKey, Candle>,
+    live_alerts: HashMap<CandleKey, LiveAlertState>,
+}
+
+#[derive(Debug, Clone)]
+struct LiveAlertState
+{
+    open_time_ms: u64,
+    last_spike_level: u64,
 }
 
 impl Engine
@@ -18,6 +26,7 @@ impl Engine
         {
             buffers: HashMap::new(),
             last_seen: HashMap::new(),
+            live_alerts: HashMap::new(),
         }
     }
 
@@ -39,7 +48,7 @@ impl Engine
             {
                 // add another variable here to be able to pass inside push_back
                 // without breaking the imutability of self by using last
-                let to_push = last.clone();
+                let closed = last.clone();
                 // entry key returns a Entry enum that checks if the key is Ocuppied or Free
                 // if free runs new::VecDeque if not it will
                 // So buf will be bascially be our mut vecDeque (queue)
@@ -48,16 +57,17 @@ impl Engine
 
                 // push last because canlde is the one that just started
                 // to its map, clone so it does not takes ownership
-                tracing::debug!(coin = ?to_push.coin, interval = ?to_push.interval, open_time = to_push.open_time_ms, "Candle closed and added to buffer");
-                buf.push_back(to_push);
+                tracing::debug!(coin = ?closed.coin, interval = ?closed.interval, open_time = closed.open_time_ms, "Candle closed and added to buffer");
+                buf.push_back(closed.clone());
 
                 if buf.len() > MAX_LENGTH_CANDLE_BUFFER 
                 {
                     buf.pop_front(); // remove from the front of Circle Queue
                 }
 
-               
-                return Some(candle);
+                self.live_alerts.remove(&candle_key);
+                self.last_seen.insert(candle_key, candle);
+                return Some(closed);
             }
             else 
             {
@@ -75,7 +85,7 @@ impl Engine
     }
 
 
-    pub fn evaluate_breakout(&self, candle: &Candle) -> Option<BreakoutAlert>
+    pub fn evaluate_live_breakout(&mut self, candle: &Candle) -> Option<BreakoutAlert>
     {
         let key = CandleKey::create_key_from_candle(candle);
         let buf = self.buffers.get(&key)?;
@@ -86,28 +96,59 @@ impl Engine
             return None;
         }
     
-        // Buffer is full — calculate indicators
-        
-        // calculate ATR using just valid candles (LAST_CANDLE_INDEX) lenght
-        let atr_input: Vec<Candle> = buf.iter().take(LAST_CANDLE_INDEX).cloned().collect();
+        // Buffer is full — calculate live candle against closed candle ATR
+        let atr_input: Vec<Candle> = buf.iter().cloned().collect();
         let atr = calculate_average_true_range(&atr_input)?;
-        // Calculate TR from last candle
-        let tr_last = calculate_true_range(&buf[SECOND_TO_LAST_CANDLE_INDEX], &buf[LAST_CANDLE_INDEX]);
-
-        tracing::debug!(coin = ?key.coin, interval = ?key.interval, tr_last = tr_last, atr = atr, ratio = tr_last / atr, "ATR evaluated");
-
-        // detect spike 
-        if tr_last > ATR_BREAKOUT_RATIO * atr
+        if atr <= 0.0
         {
-            // fire break 
-            let event = Event::ATR { prev_atr: atr, breakout_atr: tr_last };
-            let breakout_alert = BreakoutAlert::new(key, event);
-            
-            return Some(breakout_alert);
+            tracing::warn!(coin = ?key.coin, interval = ?key.interval, atr = atr, "ATR is not valid for live breakout");
+            return None;
         }
-    
-        // Returst None if Buffer is not filled
-        None
+
+        let latest_closed = buf.back()?;
+        let live_tr = calculate_true_range(latest_closed, candle);
+        let ratio = live_tr / atr;
+        let spike_level = (ratio / ATR_BREAKOUT_RATIO).floor() as u64;
+
+        if ratio >= ATR_BREAKOUT_RATIO * 0.8
+        {
+            tracing::debug!(coin = ?key.coin, interval = ?key.interval, open_time = candle.open_time_ms, live_tr = live_tr, atr = atr, ratio = ratio, spike_level = spike_level, "Live ATR evaluated");
+        }
+
+        if spike_level == 0
+        {
+            return None;
+        }
+
+        let state = self.live_alerts.entry(key.clone()).or_insert(LiveAlertState
+        {
+            open_time_ms: candle.open_time_ms,
+            last_spike_level: 0,
+        });
+
+        if state.open_time_ms != candle.open_time_ms
+        {
+            state.open_time_ms = candle.open_time_ms;
+            state.last_spike_level = 0;
+        }
+
+        if spike_level <= state.last_spike_level
+        {
+            return None;
+        }
+
+        state.last_spike_level = spike_level;
+        let event = Event::ATR
+        {
+            atr,
+            live_tr,
+            ratio,
+            spike_level,
+            open_time_ms: candle.open_time_ms,
+        };
+        let breakout_alert = BreakoutAlert::new(key, event);
+
+        Some(breakout_alert)
     }
 
     /* This function has the job of seeding our The candle data with the historical previous  MAX_LENGTH_CANDLE_BUFFER
@@ -166,5 +207,4 @@ impl Engine
 
         Ok(())
     }
-
 }

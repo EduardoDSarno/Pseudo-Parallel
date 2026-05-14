@@ -3,7 +3,14 @@ use crate::market_data::{engine::Engine, types::{Candle, CandleKey}};
 #[derive(Debug)]
 pub enum Event
 {
-    ATR {prev_atr: f64, breakout_atr: f64},
+    ATR
+    {
+        atr: f64,
+        live_tr: f64,
+        ratio: f64,
+        spike_level: u64,
+        open_time_ms: u64,
+    },
 }
 #[derive(Debug)]
 pub struct BreakoutAlert 
@@ -22,28 +29,24 @@ impl BreakoutAlert {
 
 pub fn handle_candle_event(engine: &mut Engine, candle: Candle) 
 {
+    let live_candle = candle.clone();
+    engine.handle_candle(candle);
     
-    if let Some(closed) = engine.handle_candle(candle) 
+    if let Some(alert) = engine.evaluate_live_breakout(&live_candle)
     {
-        if let Some(alert) = engine.evaluate_breakout(&closed) 
-        {
-            
-            let Event::ATR { prev_atr, breakout_atr } = alert.event;
-            
-            // Print debug statement for Break out Detection
-            tracing::info!
-            (
-                coin = ?alert.key.coin,
-                interval = ?alert.key.interval,
-                atr = prev_atr,
-                tr = breakout_atr,
-                difference = breakout_atr - prev_atr,
-                ratio = breakout_atr / prev_atr,
-                "BREAKOUT detected"
-            );
-            
-        }
+        let Event::ATR { atr, live_tr, ratio, spike_level, open_time_ms } = alert.event;
+
+        // Print debug statement for Break out Detection
+        tracing::info!
+        (
+            coin = ?alert.key.coin,
+            interval = ?alert.key.interval,
+            open_time = open_time_ms,
+            atr = atr,
+            live_tr = live_tr,
+            ratio = ratio,
+            spike_level = spike_level,
+            "LIVE BREAKOUT detected"
+        );
     }
 }
-
-
