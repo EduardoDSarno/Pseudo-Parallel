@@ -11,3 +11,8 @@ pub const M15_INTERVAL_MS: u64 = 15 * ONE_MINUTE_MS;
 pub const H1_INTERVAL_MS: u64 = 60 * ONE_MINUTE_MS;
 
 pub const ATR_BREAKOUT_RATIO:f64 = 2.5;
+pub const LIVE_ATR_DEBUG_RATIO: f64 = 0.8;
+pub const MIN_VALID_ATR: f64 = 0.0;
+
+pub const NO_SPIKE_LEVEL: u64 = 0;
+pub const FIRST_CANDLE_INDEX: usize = 0;

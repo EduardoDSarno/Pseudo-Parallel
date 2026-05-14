@@ -85,51 +85,65 @@ impl Engine
     }
 
 
+    /*
+        This function will check the currenlty forming live candle against an ATR baseline build only from
+        closed candles it will return Some(BreakoutAlern) if a spike is detected otherwise is a No. It will take a
+        &mut self because it needs to update the spike levels is already did so there's not repetiton
+         */
     pub fn evaluate_live_breakout(&mut self, candle: &Candle) -> Option<BreakoutAlert>
     {
+
+        // Create Key and find the correct buffer
         let key = CandleKey::create_key_from_candle(candle);
         let buf = self.buffers.get(&key)?;
 
+        // Check if we can already calculate ATR
         if buf.len() < MAX_LENGTH_CANDLE_BUFFER 
         {
             tracing::debug!(coin = ?key.coin, interval = ?key.interval, len = buf.len(), max = MAX_LENGTH_CANDLE_BUFFER, "Buffer warming up");
             return None;
         }
     
-        // Buffer is full — calculate live candle against closed candle ATR
+        // Buffer is full, so calculate live candle against closed candle ATR
         let atr_input: Vec<Candle> = buf.iter().cloned().collect();
         let atr = calculate_average_true_range(&atr_input)?;
-        if atr <= 0.0
+        if atr <= MIN_VALID_ATR
         {
             tracing::warn!(coin = ?key.coin, interval = ?key.interval, atr = atr, "ATR is not valid for live breakout");
             return None;
         }
 
+        // Calculating current true range
         let latest_closed = buf.back()?;
         let live_tr = calculate_true_range(latest_closed, candle);
         let ratio = live_tr / atr;
         let spike_level = (ratio / ATR_BREAKOUT_RATIO).floor() as u64;
 
-        if ratio >= ATR_BREAKOUT_RATIO * 0.8
+        if ratio >= ATR_BREAKOUT_RATIO * LIVE_ATR_DEBUG_RATIO
         {
             tracing::debug!(coin = ?key.coin, interval = ?key.interval, open_time = candle.open_time_ms, live_tr = live_tr, atr = atr, ratio = ratio, spike_level = spike_level, "Live ATR evaluated");
         }
 
-        if spike_level == 0
+        if spike_level == NO_SPIKE_LEVEL
         {
             return None;
         }
 
+        // Look inside self.live_alerts for this coin/interval.
+        // If state already exists, give me a mutable reference to it.
+        // If it does not exist, create a new LiveAlertState.
         let state = self.live_alerts.entry(key.clone()).or_insert(LiveAlertState
         {
             open_time_ms: candle.open_time_ms,
-            last_spike_level: 0,
+            last_spike_level: NO_SPIKE_LEVEL,
         });
+
+        //If the candle changed, reset the alert state.
 
         if state.open_time_ms != candle.open_time_ms
         {
             state.open_time_ms = candle.open_time_ms;
-            state.last_spike_level = 0;
+            state.last_spike_level = NO_SPIKE_LEVEL;
         }
 
         if spike_level <= state.last_spike_level
@@ -155,6 +169,7 @@ impl Engine
         candles, so it becomes a hot start insated of a cold one*/
     pub fn seed_candles(&mut self, mut candles: VecDeque<Candle>) -> Result<(), String>
     {
+        // Data not passed
         if candles.is_empty()
         {
             let err = "cannot seed engine with empty candle buffer".to_string();
@@ -162,6 +177,7 @@ impl Engine
             return Err(err);
         }
 
+        // We use this so we can get the exact number of candles we need
         if candles.len() < MAX_LENGTH_CANDLE_BUFFER
         {
             let err = format!(
@@ -174,8 +190,8 @@ impl Engine
         }
 
         let candle_key = CandleKey::new(
-            candles[0].coin.clone(),
-            candles[0].interval.clone(),
+            candles[FIRST_CANDLE_INDEX].coin.clone(),
+            candles[FIRST_CANDLE_INDEX].interval.clone(),
         );
 
         // Using a guard to make sure we just have the exact amount of candles we want
@@ -190,6 +206,7 @@ impl Engine
         Ok(())
     }
 
+    /* This is a wrapper for seed candles to handle a vector of responsed insated of one only */
     pub fn seed_from_rest_responses(&mut self, responses: Vec<RestResponse>) -> Result<(), String>
     {
         tracing::info!(responses = responses.len(), "Seeding engine from REST responses");
