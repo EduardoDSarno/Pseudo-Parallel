@@ -169,6 +169,9 @@ Right now `hl_client.rs` still receives a mutable `Engine`, so the client is a l
 for now because the project is still small, but later if we add another market data source, we may want the client to return
 events instead of calling the engine directly.
 
+
+
+
 ## Future Additions
 
 To add a new Hyperliquid stream, the flow will probably be:
@@ -180,3 +183,7 @@ To add a new Hyperliquid stream, the flow will probably be:
 5. Add the event handling that sends it into the correct part of the engine.
 
 For now, candles are the only complete flow from Hyperliquid all the way into the engine.
+
+## UPDATES
+Additon on may 14, 2026
+We Have added the the hl_rest_client file which is resposible for fetching the data for the Engine from the 14 previous candles so we don't have to use the warmup anymore

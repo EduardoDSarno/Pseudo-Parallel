@@ -4,7 +4,9 @@ use reqwest::Client;
 
 use crate::market_data::{constans::HYPERLIQUID_REST_URL, hyperliquid::protocols::rest::{RestRequest, RestResponse, parse_snapshot_to_candles}};
 
-
+/* This function has the job of creating a new client, calling the HYPERLIQUID_REST_URL endpoint
+    and matching the request according to the data received modeled by Our enumeration in the rest file
+    */
 pub async fn send_single_info_request(request: RestRequest) -> Result<RestResponse, Box<dyn Error>>
 {
     let req_client = Client::new();
@@ -35,6 +37,7 @@ pub async fn send_single_info_request(request: RestRequest) -> Result<RestRespon
     match_info_response(request, &body)
 }
 
+/* This function will loop thorugh the requests and create the responsed to send to the REST API */
 pub async fn send_multiple_info_requests(requests: Vec<RestRequest>) -> Result<Vec<RestResponse>, Box<dyn Error>>
 {
     let mut responses: Vec<RestResponse> = Vec::new();
@@ -51,6 +54,8 @@ pub async fn send_multiple_info_requests(requests: Vec<RestRequest>) -> Result<V
     Ok(responses)
 }
 
+/* This functions is responsible for receving a request and matching it with the resptcitve ResReqest struct
+    on the enum */
 fn match_info_response(request: RestRequest, body: &str) -> Result<RestResponse, Box<dyn Error>>
 {
     match request

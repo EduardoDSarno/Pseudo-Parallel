@@ -1,2 +1,2 @@
 pub mod event;
-pub mod manual_price;
+pub mod price_alert;

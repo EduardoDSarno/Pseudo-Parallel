@@ -151,6 +151,7 @@ impl Engine
             return None;
         }
 
+        // Create a return Alert
         state.last_spike_level = spike_level;
         let event = Event::ATR
         {
