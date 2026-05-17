@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 /* Enumerate coin strings into our hard values */
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash, Copy)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum Coins
 {
