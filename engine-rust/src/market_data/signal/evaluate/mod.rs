@@ -1,2 +1,2 @@
-pub mod evaluate_indicators;
-pub mod evaluate_atr;
+pub mod event_evaluator;
+pub mod evaluators;

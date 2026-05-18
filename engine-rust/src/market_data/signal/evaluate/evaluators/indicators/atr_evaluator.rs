@@ -29,7 +29,7 @@ impl AtrEvaluator
         }
     }
 
-    pub fn evaluate_live_atr(&self, view: MarketView<'_>) -> Option<AtrEvaluation>
+    pub fn evaluate_live_atr(&self, view: &MarketView<'_>) -> Option<AtrEvaluation>
     {
         if view.closed_candles.len() < self.max_closed_candles
         {

@@ -4,7 +4,7 @@ use crate::market_data::{
     constans::{ATR_BREAKOUT_RATIO, LIVE_ATR_DEBUG_RATIO, NO_SPIKE_LEVEL},
     engine::MarketView,
     signal::{
-        evaluate::evaluate_atr::{AtrEvaluation, AtrEvaluator},
+        evaluate::evaluators::indicators::atr_evaluator::{AtrEvaluation, AtrEvaluator},
         event::{Alert, Event},
     },
     types::CandleKey,
@@ -17,24 +17,24 @@ struct LiveAlertState
     last_spike_level: u64,
 }
 
-pub struct Evaluator
+pub struct IndicatorEvaluator
 {
     atr_evaluator: AtrEvaluator,
     atr_alerts: HashMap<CandleKey, LiveAlertState>,
 }
 
-impl Evaluator
+impl IndicatorEvaluator
 {
     pub fn new(max_closed_candles: usize) -> Self
     {
-        Evaluator
+        IndicatorEvaluator
         {
             atr_evaluator: AtrEvaluator::new(max_closed_candles),
             atr_alerts: HashMap::new(),
         }
     }
 
-    pub fn evaluate(&mut self, view: MarketView<'_>) -> Vec<Alert>
+    pub fn evaluate_indicator(&mut self, view: &MarketView<'_>) -> Vec<Alert>
     {
         let mut alerts = Vec::new();
 
