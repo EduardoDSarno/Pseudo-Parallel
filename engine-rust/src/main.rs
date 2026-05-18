@@ -1,9 +1,14 @@
 use std::error::Error;
 
-use crate::{market_data::{config::MarketDataConfig, engine::Engine, hyperliquid::{hl_client::run_hyperliquid_client, protocols::subscribe::subscribe_candle}, signal::indicators::evaluate_indicators::IndicatorEvaluator, types::{CandleKey, Coins, Interval}}, startup::seed_engine_from_rest};
+use crate::market_data::{
+    config::MarketDataConfig,
+    coordinator::MarketDataCoordinator,
+    hyperliquid::{hl_client::run_hyperliquid_client, protocols::subscribe::subscribe_candle},
+    startup::seed_engine_from_rest,
+    types::{CandleKey, Coins, Interval},
+};
 mod market_data;
 mod log;
-mod startup;
 
 #[tokio::main]
 async fn main()->Result<(), Box<dyn Error>> 
@@ -12,8 +17,7 @@ async fn main()->Result<(), Box<dyn Error>>
     tracing::info!("Engine starting");
 
     let market_data_config = MarketDataConfig::default();
-    let mut engine = Engine::new(market_data_config.max_closed_candles);
-    let mut indicator_evaluator = IndicatorEvaluator::new(market_data_config.max_closed_candles);
+    let mut coordinator = MarketDataCoordinator::new(market_data_config);
     tracing::info!(max_closed_candles = market_data_config.max_closed_candles, "Market data engine initialized");
 
     // Candle streams we want to seed first and then keep receiving live data from.
@@ -26,7 +30,7 @@ async fn main()->Result<(), Box<dyn Error>>
     tracing::info!(streams = candle_keys.len(), candle_keys = ?candle_keys, "Candle streams configured");
 
     tracing::info!("Starting REST seed");
-    seed_engine_from_rest(&mut engine, &candle_keys, market_data_config.max_closed_candles).await?;
+    seed_engine_from_rest(&mut coordinator, &candle_keys).await?;
     tracing::info!("REST seed finished");
 
     // Create the WebSocket subscriptions from the same keys we already seeded.
@@ -37,7 +41,7 @@ async fn main()->Result<(), Box<dyn Error>>
     tracing::info!("WebSocket subscriptions created");
 
     tracing::info!("Starting live market data stream");
-    run_hyperliquid_client(subs, &mut engine, &mut indicator_evaluator).await?;
+    run_hyperliquid_client(subs, &mut coordinator).await?;
     tracing::warn!("Live market data stream stopped");
 
     Ok(())

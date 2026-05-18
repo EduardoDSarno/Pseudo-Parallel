@@ -17,17 +17,17 @@ struct LiveAlertState
     last_spike_level: u64,
 }
 
-pub struct IndicatorEvaluator
+pub struct Evaluator
 {
     live_alerts: HashMap<CandleKey, LiveAlertState>,
     max_closed_candles: usize,
 }
 
-impl IndicatorEvaluator
+impl Evaluator
 {
     pub fn new(max_closed_candles: usize) -> Self
     {
-        IndicatorEvaluator
+        Evaluator
         {
             live_alerts: HashMap::new(),
             max_closed_candles,

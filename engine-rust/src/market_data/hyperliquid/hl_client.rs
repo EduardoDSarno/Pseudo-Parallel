@@ -2,11 +2,11 @@
 use futures_util::{SinkExt, StreamExt};
 use tokio::net::TcpStream;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async, tungstenite::Message};
-use crate::market_data::{constans::HYPERLIQUID_WS_URL, engine::Engine, hyperliquid::protocols::{inbound::InboundMessage, subscribe::SubscribeToChannelReq}, signal::{event::handle_candle_event, indicators::evaluate_indicators::IndicatorEvaluator}, types::Candle};
+use crate::market_data::{constans::HYPERLIQUID_WS_URL, coordinator::MarketDataCoordinator, hyperliquid::protocols::{inbound::InboundMessage, subscribe::SubscribeToChannelReq}, types::Candle};
 
 
 
-pub async fn run_hyperliquid_client(subs: Vec<SubscribeToChannelReq>, engine: &mut Engine, indicator_evaluator: &mut IndicatorEvaluator) -> Result<(), Box<dyn std::error::Error>>
+pub async fn run_hyperliquid_client(subs: Vec<SubscribeToChannelReq>, coordinator: &mut MarketDataCoordinator) -> Result<(), Box<dyn std::error::Error>>
 {
     tracing::info!(subscriptions = subs.len(), "Starting Hyperliquid client");
 
@@ -27,7 +27,7 @@ pub async fn run_hyperliquid_client(subs: Vec<SubscribeToChannelReq>, engine: &m
     while let Some(result) =  ws_stream.next().await
     {
         // It will return false when closed
-        if !read_message(result, engine, indicator_evaluator)
+        if !read_message(result, coordinator)
         {
             break;
         }
@@ -54,14 +54,14 @@ async fn connect_ws_hl() -> Result<WebSocketStream<MaybeTlsStream<TcpStream>>, B
 /* THis function will read the message and try to match (if successfully received text)
     with one of our message inbounds otherwise it will match with different types of responses
      */
-fn read_message(result: Result<Message, tokio_tungstenite::tungstenite::Error>, engine: &mut Engine, indicator_evaluator: &mut IndicatorEvaluator) -> bool
+fn read_message(result: Result<Message, tokio_tungstenite::tungstenite::Error>, coordinator: &mut MarketDataCoordinator) -> bool
 {
     match result
     {
         Ok(Message::Text(text)) => 
         {
             let deserialized = serde_json::from_str::<InboundMessage>(&text);
-            let _ = match_response(deserialized, engine, indicator_evaluator);
+            let _ = match_response(deserialized, coordinator);
             true
         }
         // Tokio tungstain handles automatically
@@ -96,7 +96,7 @@ fn read_message(result: Result<Message, tokio_tungstenite::tungstenite::Error>, 
 }
 
 /* THis function is soly responsible for matching the message with one of our inbounds streams */
-fn match_response(message_response: Result<InboundMessage, serde_json::Error>, engine: &mut Engine, indicator_evaluator: &mut IndicatorEvaluator) -> Result<(), Box<dyn std::error::Error>>
+fn match_response(message_response: Result<InboundMessage, serde_json::Error>, coordinator: &mut MarketDataCoordinator) -> Result<(), Box<dyn std::error::Error>>
 {
 
     match message_response
@@ -111,7 +111,7 @@ fn match_response(message_response: Result<InboundMessage, serde_json::Error>, e
         {
             let candle = Candle::try_from(candle_hl)
                 .inspect_err(|err| tracing::error!(error = %err, "Could not convert inbound candle"))?;
-            handle_candle_event(engine, indicator_evaluator, candle);
+            coordinator.handle_candle(candle);
             Ok(())
         }
         Ok(InboundMessage::Error(msg)) => 

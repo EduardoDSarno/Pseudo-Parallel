@@ -1,4 +1,5 @@
 mod core;
+mod seed;
 
 #[cfg(test)]
 mod tests;
