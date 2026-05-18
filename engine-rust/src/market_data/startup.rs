@@ -1,4 +1,7 @@
-use std::{error::Error, time::{SystemTime, UNIX_EPOCH}};
+use std::{
+    error::Error,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use crate::market_data::{
     coordinator::MarketDataCoordinator,
@@ -10,17 +13,22 @@ use crate::market_data::{
 };
 
 /* This function seeds the engine with previous REST candles before starting the
-   live WebSocket stream, so the engine starts with a hot buffer instead of empty data. */
-pub async fn seed_engine_from_rest(coordinator: &mut MarketDataCoordinator, candle_keys: &[CandleKey]) -> Result<(), Box<dyn Error>>
-{
+live WebSocket stream, so the engine starts with a hot buffer instead of empty data. */
+pub async fn seed_engine_from_rest(
+    coordinator: &mut MarketDataCoordinator,
+    candle_keys: &[CandleKey],
+) -> Result<(), Box<dyn Error>> {
     let end_time = current_time_ms()?;
     let mut requests: Vec<RestRequest> = Vec::new();
     let max_closed_candles = coordinator.max_closed_candles();
 
-    tracing::info!(streams = candle_keys.len(), end_time = end_time, "Building REST seed requests");
+    tracing::info!(
+        streams = candle_keys.len(),
+        end_time = end_time,
+        "Building REST seed requests"
+    );
 
-    for candle_key in candle_keys
-    {
+    for candle_key in candle_keys {
         // Each interval needs its own time window to get max_closed_candles candles.
         let start_time = end_time - (candle_key.interval.to_ms() * max_closed_candles as u64);
         tracing::debug!(coin = ?candle_key.coin, interval = ?candle_key.interval, start_time = start_time, end_time = end_time, "Building candle snapshot request");
@@ -36,7 +44,8 @@ pub async fn seed_engine_from_rest(coordinator: &mut MarketDataCoordinator, cand
     let responses = send_multiple_info_requests(requests).await?;
     tracing::info!(responses = responses.len(), "REST seed responses received");
 
-    coordinator.seed_from_rest_responses(responses)
+    coordinator
+        .seed_from_rest_responses(responses)
         .inspect_err(|err| tracing::error!(error = %err, "REST seed failed"))
         .map_err(|err| std::io::Error::new(std::io::ErrorKind::InvalidData, err))?;
 
@@ -45,9 +54,6 @@ pub async fn seed_engine_from_rest(coordinator: &mut MarketDataCoordinator, cand
 }
 
 // Helper to keep timestamp creation outside the main startup flow.
-fn current_time_ms() -> Result<u64, Box<dyn Error>>
-{
-    Ok(SystemTime::now()
-        .duration_since(UNIX_EPOCH)?
-        .as_millis() as u64)
+fn current_time_ms() -> Result<u64, Box<dyn Error>> {
+    Ok(SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis() as u64)
 }

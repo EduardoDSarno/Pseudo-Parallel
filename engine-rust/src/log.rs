@@ -1,8 +1,7 @@
 use tracing_appender::non_blocking::WorkerGuard;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
-pub fn init_logging() -> WorkerGuard
-{
+pub fn init_logging() -> WorkerGuard {
     let file_appender = tracing_appender::rolling::daily("logs", "engine.log");
     let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
 

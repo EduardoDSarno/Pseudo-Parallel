@@ -4,6 +4,6 @@ pub mod coin;
 pub mod interval;
 
 pub use candle::Candle;
+pub use candle_key::CandleKey;
 pub use coin::Coins;
 pub use interval::Interval;
-pub use candle_key::CandleKey;

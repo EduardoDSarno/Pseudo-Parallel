@@ -1,6 +1,9 @@
 use super::core::*;
+use crate::market_data::{
+    constans::*,
+    types::{Candle, CandleKey, Coins, Interval},
+};
 use std::collections::VecDeque;
-use crate::market_data::{constans::*, types::{Candle, CandleKey, Coins, Interval}};
 
 const TEST_BASE_CLOSE: f64 = 100.0;
 const TEST_BASE_HIGH: f64 = 100.5;
@@ -11,10 +14,8 @@ const TEST_MAX_CLOSED_CANDLES: usize = 3;
 
 const TEST_LIVE_OPEN_TIME: u64 = 100 * M5_INTERVAL_MS;
 
-fn candle(open_time_ms: u64, high_price: f64, low_price: f64, close_price: f64) -> Candle
-{
-    Candle
-    {
+fn candle(open_time_ms: u64, high_price: f64, low_price: f64, close_price: f64) -> Candle {
+    Candle {
         open_time_ms,
         close_time_ms: open_time_ms + M5_INTERVAL_MS,
         coin: Coins::HYPE,
@@ -28,36 +29,46 @@ fn candle(open_time_ms: u64, high_price: f64, low_price: f64, close_price: f64) 
     }
 }
 
-fn test_key() -> CandleKey
-{
+fn test_key() -> CandleKey {
     CandleKey::new(Coins::HYPE, Interval::M5)
 }
 
 #[test]
-fn seed_candles_rejects_empty_buffer()
-{
+fn seed_candles_rejects_empty_buffer() {
     let mut engine = Engine::new(TEST_MAX_CLOSED_CANDLES);
 
     assert!(engine.seed_candles(VecDeque::new()).is_err());
 }
 
 #[test]
-fn seed_candles_rejects_short_buffer()
-{
+fn seed_candles_rejects_short_buffer() {
     let mut engine = Engine::new(TEST_MAX_CLOSED_CANDLES);
     let candles = (0..TEST_MAX_CLOSED_CANDLES - 1)
-        .map(|i| candle(i as u64 * M5_INTERVAL_MS, TEST_BASE_HIGH, TEST_BASE_LOW, TEST_BASE_CLOSE))
+        .map(|i| {
+            candle(
+                i as u64 * M5_INTERVAL_MS,
+                TEST_BASE_HIGH,
+                TEST_BASE_LOW,
+                TEST_BASE_CLOSE,
+            )
+        })
         .collect();
 
     assert!(engine.seed_candles(candles).is_err());
 }
 
 #[test]
-fn seed_candles_trims_to_configured_size()
-{
+fn seed_candles_trims_to_configured_size() {
     let mut engine = Engine::new(TEST_MAX_CLOSED_CANDLES);
     let candles = (0..TEST_MAX_CLOSED_CANDLES + 2)
-        .map(|i| candle(i as u64 * M5_INTERVAL_MS, TEST_BASE_HIGH, TEST_BASE_LOW, TEST_BASE_CLOSE))
+        .map(|i| {
+            candle(
+                i as u64 * M5_INTERVAL_MS,
+                TEST_BASE_HIGH,
+                TEST_BASE_LOW,
+                TEST_BASE_CLOSE,
+            )
+        })
         .collect();
 
     engine.seed_candles(candles).unwrap();
@@ -69,29 +80,45 @@ fn seed_candles_trims_to_configured_size()
 }
 
 #[test]
-fn last_seen_can_be_updated()
-{
+fn last_seen_can_be_updated() {
     let mut engine = Engine::new(TEST_MAX_CLOSED_CANDLES);
     let live = candle(TEST_LIVE_OPEN_TIME, 102.5, TEST_BASE_CLOSE, 102.5);
 
     engine.set_last_seen(test_key(), live.clone());
 
-    assert_eq!(engine.last_seen(&test_key()).unwrap().open_time_ms, live.open_time_ms);
+    assert_eq!(
+        engine.last_seen(&test_key()).unwrap().open_time_ms,
+        live.open_time_ms
+    );
 }
 
 #[test]
-fn push_closed_candle_caps_buffer_at_configured_size()
-{
+fn push_closed_candle_caps_buffer_at_configured_size() {
     let mut engine = Engine::new(TEST_MAX_CLOSED_CANDLES);
 
-    for i in 0..TEST_MAX_CLOSED_CANDLES + 1
-    {
+    for i in 0..TEST_MAX_CLOSED_CANDLES + 1 {
         engine.push_closed_candle(
             test_key(),
-            candle(i as u64 * M5_INTERVAL_MS, TEST_BASE_HIGH, TEST_BASE_LOW, TEST_BASE_CLOSE),
+            candle(
+                i as u64 * M5_INTERVAL_MS,
+                TEST_BASE_HIGH,
+                TEST_BASE_LOW,
+                TEST_BASE_CLOSE,
+            ),
         );
     }
 
-    assert_eq!(engine.closed_buffer(&test_key()).unwrap().front().unwrap().open_time_ms, M5_INTERVAL_MS);
-    assert_eq!(engine.closed_buffer(&test_key()).unwrap().len(), TEST_MAX_CLOSED_CANDLES);
+    assert_eq!(
+        engine
+            .closed_buffer(&test_key())
+            .unwrap()
+            .front()
+            .unwrap()
+            .open_time_ms,
+        M5_INTERVAL_MS
+    );
+    assert_eq!(
+        engine.closed_buffer(&test_key()).unwrap().len(),
+        TEST_MAX_CLOSED_CANDLES
+    );
 }

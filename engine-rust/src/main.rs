@@ -7,22 +7,23 @@ use crate::market_data::{
     startup::seed_engine_from_rest,
     types::{CandleKey, Coins, Interval},
 };
-mod market_data;
 mod log;
+mod market_data;
 
 #[tokio::main]
-async fn main()->Result<(), Box<dyn Error>> 
-{
+async fn main() -> Result<(), Box<dyn Error>> {
     let _guard = log::init_logging();
     tracing::info!("Engine starting");
 
     let market_data_config = MarketDataConfig::default();
     let mut coordinator = MarketDataCoordinator::new(market_data_config);
-    tracing::info!(max_closed_candles = market_data_config.max_closed_candles, "Market data engine initialized");
+    tracing::info!(
+        max_closed_candles = market_data_config.max_closed_candles,
+        "Market data engine initialized"
+    );
 
     // Candle streams we want to seed first and then keep receiving live data from.
-    let candle_keys = vec!
-    [
+    let candle_keys = vec![
         CandleKey::new(Coins::HYPE, Interval::M5),
         CandleKey::new(Coins::HYPE, Interval::M15),
         CandleKey::new(Coins::HYPE, Interval::H1),

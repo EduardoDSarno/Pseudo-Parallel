@@ -1,11 +1,10 @@
-
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CandleHL {
     #[serde(rename = "t")]
     pub open_time_ms: u64, // open millis
-    
+
     #[serde(rename = "T")]
     pub close_time_ms: u64, // close millis
 
@@ -31,7 +30,5 @@ pub struct CandleHL {
     pub volume: String,
 
     #[serde(rename = "n")]
-    pub trade_count: u64
-
+    pub trade_count: u64,
 }
-

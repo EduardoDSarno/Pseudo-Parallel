@@ -1,4 +1,7 @@
-use crate::market_data::{hyperliquid::protocols::data_models::candle::CandleHL, types::{Coins, Interval}};
+use crate::market_data::{
+    hyperliquid::protocols::data_models::candle::CandleHL,
+    types::{Coins, Interval},
+};
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
@@ -16,17 +19,14 @@ pub struct Candle {
 }
 
 /* THis implementation will try converting the HL candle string field received from
-    the serde parse into a numeric struct Candle which we can use for market_data*/
-impl TryFrom<CandleHL> for Candle 
-{
+the serde parse into a numeric struct Candle which we can use for market_data*/
+impl TryFrom<CandleHL> for Candle {
     type Error = Box<dyn std::error::Error>;
-    fn try_from(json: CandleHL) -> Result<Self, Self::Error> 
-    {
-        Ok(Candle 
-        {
+    fn try_from(json: CandleHL) -> Result<Self, Self::Error> {
+        Ok(Candle {
             open_time_ms: json.open_time_ms,
             close_time_ms: json.close_time_ms,
-            coin:Coins::try_from(json.coin)? , // Result
+            coin: Coins::try_from(json.coin)?,            // Result
             interval: Interval::try_from(json.interval)?, // Result
             open_price: json.open_price.parse()?,
             close_price: json.close_price.parse()?,
@@ -37,4 +37,3 @@ impl TryFrom<CandleHL> for Candle
         })
     }
 }
-

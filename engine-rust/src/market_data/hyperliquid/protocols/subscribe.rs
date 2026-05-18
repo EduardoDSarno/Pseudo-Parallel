@@ -2,23 +2,19 @@ use serde::{Deserialize, Serialize};
 
 use crate::market_data::types::{CandleKey, Coins, Interval};
 
-
-#[derive(Deserialize,Serialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "lowercase")]
-pub struct SubscribeToChannelReq
-{
+pub struct SubscribeToChannelReq {
     method: Method,
-    subscription: SubscriptionData
+    subscription: SubscriptionData,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum SubscriptionData {
-
-    Candle 
-    {
+    Candle {
         #[serde(flatten)]
-        candle_key: CandleKey
+        candle_key: CandleKey,
     },
     L2Book {
         coin: Coins,
@@ -28,36 +24,29 @@ pub enum SubscriptionData {
     },
     UserEvents {
         user: String,
-    }, 
-
-
+    },
 }
-#[derive(Deserialize,Serialize, Debug, Clone,)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "lowercase")]
-pub enum Method{
+pub enum Method {
     SUBSCRIBE,
-    UNSUBSCRIBE
+    UNSUBSCRIBE,
 }
-impl SubscribeToChannelReq
-{
-    pub fn new(method: Method, sub_data : SubscriptionData)->SubscribeToChannelReq
-    {
-       let req = SubscribeToChannelReq{
-        method: method,
-        subscription: sub_data
-       };
-       req
+impl SubscribeToChannelReq {
+    pub fn new(method: Method, sub_data: SubscriptionData) -> SubscribeToChannelReq {
+        let req = SubscribeToChannelReq {
+            method: method,
+            subscription: sub_data,
+        };
+        req
     }
 }
 
 /* This function is a wrapper to be  to subscribe for a hyperliquid candle stream*/
-pub fn subscribe_candle(coin: Coins, interval: Interval) -> SubscribeToChannelReq 
-{
-    SubscribeToChannelReq::new
-    (
+pub fn subscribe_candle(coin: Coins, interval: Interval) -> SubscribeToChannelReq {
+    SubscribeToChannelReq::new(
         Method::SUBSCRIBE,
-        SubscriptionData::Candle 
-        {
+        SubscriptionData::Candle {
             candle_key: CandleKey::new(coin, interval),
         },
     )

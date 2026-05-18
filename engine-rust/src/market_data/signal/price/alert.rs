@@ -2,8 +2,7 @@ use crate::market_data::{constans::PRICE_SCALE, types::Coins};
 use crate::Error;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum ManualPriceDirection 
-{
+pub enum ManualPriceDirection {
     Above,
     Below,
 }
@@ -14,8 +13,7 @@ pub struct PriceKey(pub i64);
 
 /* Full rule identity: coin + price level + direction */
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct AlertKey 
-{
+pub struct AlertKey {
     pub coin: Coins,
     pub price_key: PriceKey,
     pub direction: ManualPriceDirection,
@@ -23,19 +21,15 @@ pub struct AlertKey
 
 /* The ALert Structure itself */
 #[derive(Debug, Clone)]
-pub struct ManualPriceAlert 
-{
+pub struct ManualPriceAlert {
     pub coin: Coins,
     pub trigger_price: f64,
     pub direction: ManualPriceDirection,
 }
 
-impl ManualPriceAlert
-{
-    pub fn new(coin: Coins, trigger_p: f64, direction: ManualPriceDirection) -> Self
-    {
-        ManualPriceAlert
-        {
+impl ManualPriceAlert {
+    pub fn new(coin: Coins, trigger_p: f64, direction: ManualPriceDirection) -> Self {
+        ManualPriceAlert {
             coin: coin,
             trigger_price: trigger_p,
             direction: direction,
@@ -43,14 +37,14 @@ impl ManualPriceAlert
     }
 
     /*Returns a Result alert key for the ManualPriceALert*/
-    pub fn alert_key(&self) -> Result<AlertKey, Box<dyn Error>> 
-    {
-        let price_key = match PriceKey::from_price(self.trigger_price) 
-        {
+    pub fn alert_key(&self) -> Result<AlertKey, Box<dyn Error>> {
+        let price_key = match PriceKey::from_price(self.trigger_price) {
             Some(key) => key,
-            None => 
-            {
-                tracing::error!(trigger_price = self.trigger_price, "invalid trigger price for alert key");
+            None => {
+                tracing::error!(
+                    trigger_price = self.trigger_price,
+                    "invalid trigger price for alert key"
+                );
                 return Err("invalid trigger price".into());
             }
         };
@@ -60,12 +54,9 @@ impl ManualPriceAlert
 }
 
 /* Price Key converter to go around f64 NAN limitation in search */
-impl PriceKey
-{
-    pub fn from_price(price: f64) -> Option<PriceKey>
-    {
-        if !price.is_finite() || price <= 0.0
-        {
+impl PriceKey {
+    pub fn from_price(price: f64) -> Option<PriceKey> {
+        if !price.is_finite() || price <= 0.0 {
             return None;
         }
 
@@ -73,12 +64,9 @@ impl PriceKey
     }
 }
 
-impl AlertKey
-{
-    pub fn new(coin: Coins, price_key: PriceKey, direction: ManualPriceDirection) -> Self 
-    {
-        AlertKey 
-        {
+impl AlertKey {
+    pub fn new(coin: Coins, price_key: PriceKey, direction: ManualPriceDirection) -> Self {
+        AlertKey {
             coin: coin,
             price_key: price_key,
             direction: direction,
