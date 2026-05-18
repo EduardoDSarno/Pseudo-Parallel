@@ -1,6 +1,15 @@
 use std::{collections::VecDeque};
 use crate::market_data::types::Candle;
 
+pub struct ATR
+{
+    atr: f64,
+    live_tr: f64,
+    ratio: f64,
+    spike_level: u64,
+    open_time_ms: u64,
+}
+
 /* This function calcualte the true range of a candle putting in consideration 
     possible gaps in price duee to low liquidity */
 pub fn calculate_true_range(prev_candle: &Candle, curr_candle: &Candle) -> f64

@@ -2,7 +2,7 @@
 pub const HYPERLIQUID_WS_URL:   &str = "wss://api.hyperliquid.xyz/ws";
 pub const HYPERLIQUID_REST_URL: &str = "https://api.hyperliquid.xyz/info";
 
-pub const MAX_LENGTH_CANDLE_BUFFER: usize    = 15;
+pub const DEFAULT_MAX_CLOSED_CANDLES: usize = 20;
 
 pub const ONE_MINUTE_MS: u64 = 60 * 1000;
 pub const M1_INTERVAL_MS: u64 = ONE_MINUTE_MS;
@@ -19,4 +19,3 @@ pub const FIRST_CANDLE_INDEX: usize = 0;
 
 
 pub const PRICE_SCALE: f64 = 100_000_000.0;
-

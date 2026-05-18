@@ -1,4 +1,8 @@
-use crate::market_data::{engine::Engine, types::{Candle, CandleKey}};
+use crate::market_data::{
+    engine::Engine,
+    signal::indicators::evaluate_indicators::IndicatorEvaluator,
+    types::{Candle, CandleKey},
+};
 
 #[derive(Debug)]
 pub enum Event
@@ -27,16 +31,15 @@ impl BreakoutAlert {
 }
 
 
-pub fn handle_candle_event(engine: &mut Engine, candle: Candle) 
+pub fn handle_candle_event(engine: &mut Engine, indicator_evaluator: &mut IndicatorEvaluator, candle: Candle)
 {
     let live_candle = candle.clone();
     engine.handle_candle(candle);
-    
-    if let Some(alert) = engine.evaluate_live_breakout(&live_candle)
+
+    if let Some(alert) = indicator_evaluator.evaluate_live_breakout(engine, &live_candle)
     {
         let Event::ATR { atr, live_tr, ratio, spike_level, open_time_ms } = alert.event;
 
-        // Print debug statement for Break out Detection
         tracing::info!
         (
             coin = ?alert.key.coin,

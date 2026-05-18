@@ -1,6 +1,6 @@
 use serde::{Serialize, Deserialize};
 
-use crate::market_data::{constans::MAX_LENGTH_CANDLE_BUFFER, hyperliquid::protocols::data_models::candle::CandleHL, types::{Candle, CandleKey}};
+use crate::market_data::{hyperliquid::protocols::data_models::candle::CandleHL, types::{Candle, CandleKey}};
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(tag = "type", content = "req", rename_all = "camelCase")]
@@ -22,7 +22,7 @@ pub struct CandleSnapshotRequest
 
 impl CandleSnapshotRequest
 {
-    pub fn new(candle_key: CandleKey, start_time: u64, end_time: u64) -> Result<CandleSnapshotRequest, String>
+    pub fn new(candle_key: CandleKey, start_time: u64, end_time: u64, min_candles: usize) -> Result<CandleSnapshotRequest, String>
     {
         if end_time <= start_time
         {
@@ -30,7 +30,7 @@ impl CandleSnapshotRequest
         }
 
         let interval_ms = candle_key.interval.to_ms();
-        let minimum_window_ms = interval_ms * MAX_LENGTH_CANDLE_BUFFER as u64;
+        let minimum_window_ms = interval_ms * min_candles as u64;
         let requested_window_ms = end_time - start_time;
 
         if requested_window_ms < minimum_window_ms
