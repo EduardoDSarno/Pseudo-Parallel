@@ -2,7 +2,7 @@ use crate::market_data::{
     config::MarketDataConfig,
     engine::Engine,
     hyperliquid::protocols::rest::RestResponse,
-    signal::indicators::evaluate_indicators::Evaluator,
+    signal::evaluate::evaluate_indicators::Evaluator,
 };
 
 mod candle;

@@ -3,25 +3,18 @@ use crate::market_data::types::CandleKey;
 #[derive(Debug)]
 pub enum Event
 {
-    ATR
-    {
-        atr: f64,
-        live_tr: f64,
-        ratio: f64,
-        spike_level: u64,
-        open_time_ms: u64,
-    },
+    AtrEvaluation,
 }
 #[derive(Debug)]
-pub struct BreakoutAlert 
+pub struct Alert
 {
     pub key: CandleKey,
     pub event: Event,
 }
 
-impl BreakoutAlert {
+impl Alert {
     pub fn new(key: CandleKey, event: Event) -> Self 
     {
-        BreakoutAlert { key, event }
+        Alert { key, event }
     }
 }

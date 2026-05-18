@@ -24,6 +24,7 @@ impl Engine
         }
     }
 
+    /* helpers to keep engine private for rest application, just pub for the mod */
     pub fn last_seen(&self, candle_key: &CandleKey) -> Option<&Candle>
     {
         self.last_seen.get(candle_key)
