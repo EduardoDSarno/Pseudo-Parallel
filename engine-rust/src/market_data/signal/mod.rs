@@ -1,4 +1,4 @@
 pub mod event;
-pub mod price_alert;
+pub mod price;
 pub mod indicators;
 pub mod evaluate;

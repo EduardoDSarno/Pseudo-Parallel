@@ -7,7 +7,8 @@ use crate::market_data::{
 
 /* This structure is responsible to be a view only option to engine it will
     supply the exact market data needed for evaluation. so we don't have to
-    touch or pass the Engine*/
+    touch or pass the Engine and it bundles with candle key for easy look up
+    and access*/
 pub struct MarketView<'a>
 {
     pub key: &'a CandleKey,

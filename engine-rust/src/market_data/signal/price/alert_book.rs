@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
 
-use crate::market_data::signal::price_alert::alert::{AlertKey, ManualPriceAlert, ManualPriceDirection, PriceKey};
+use crate::market_data::signal::price::alert::{AlertKey, ManualPriceAlert, ManualPriceDirection, PriceKey};
 use crate::market_data::types::Coins;
 use crate::Error;
 

@@ -16,6 +16,7 @@ pub const MIN_VALID_ATR: f64 = 0.0;
 
 pub const NO_SPIKE_LEVEL: u64 = 0;
 pub const FIRST_CANDLE_INDEX: usize = 0;
-
+/* Minimum closed candles needed to compute one true-range pair for ATR */
+pub const MIN_CANDLES_FOR_ATR: usize = 2;
 
 pub const PRICE_SCALE: f64 = 100_000_000.0;

@@ -1,5 +1,6 @@
 use crate::market_data::{
     coordinator::MarketDataCoordinator,
+    signal::event::Event,
     types::{Candle, CandleKey},
 };
 
@@ -30,9 +31,25 @@ impl MarketDataCoordinator
             return;
         };
 
-        for alert in self.evaluator.evaluate(view)
+        for alert in self.event_evaluator.evaluate(&view)
         {
-            tracing::info!(alert = ?alert, "Signal alert detected");
+            match alert.event
+            {
+                Event::AtrBreakout { atr, live_tr, ratio, spike_level, open_time_ms } =>
+                {
+                    tracing::info!
+                    (
+                        coin = ?alert.key.coin,
+                        interval = ?alert.key.interval,
+                        open_time = open_time_ms,
+                        atr = atr,
+                        live_tr = live_tr,
+                        ratio = ratio,
+                        spike_level = spike_level,
+                        "ATR breakout detected"
+                    );
+                }
+            }
         }
     }
 }

@@ -30,7 +30,7 @@ impl EventEvaluator
     {
         let mut alerts = Vec::new();
 
-        alerts.extend(self.price_evaluator.evaluate(view));
+        alerts.extend(self.price_evaluator.price_evaluator(view));
         alerts.extend(self.indicator_evaluator.evaluate_indicator(view));
 
         alerts

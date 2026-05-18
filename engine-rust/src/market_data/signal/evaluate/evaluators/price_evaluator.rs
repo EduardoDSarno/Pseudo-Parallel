@@ -12,7 +12,7 @@ impl PriceEvaluator
         PriceEvaluator
     }
 
-    pub fn evaluate(&mut self, _view: &MarketView<'_>) -> Vec<Alert>
+    pub fn price_evaluator(&mut self, _view: &MarketView<'_>) -> Vec<Alert>
     {
         Vec::new()
     }
