@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use crate::market_data::{constans::PRICE_SCALE, types::Coins};
 use crate::Error;
 

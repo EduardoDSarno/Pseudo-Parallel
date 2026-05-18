@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 
 use crate::market_data::{
     engine::MarketView,
-    signal::{evaluate::evaluators::price_evaluator::PriceEvaluator, event::Event},
+    signal::evaluate::evaluators::price_evaluator::PriceEvaluator,
     types::{Candle, CandleKey, Coins, Interval},
 };
 
@@ -40,35 +40,4 @@ fn first_price_only_records_state() {
     };
 
     assert!(evaluator.price_evaluator(&view).is_empty());
-}
-
-#[test]
-fn second_price_crossing_hardcoded_above_returns_alert() {
-    let mut evaluator = PriceEvaluator::new();
-    let key = key();
-    let closed_candles = VecDeque::new();
-    let first_live = candle(29.0);
-    let first_view = MarketView {
-        key: &key,
-        closed_candles: &closed_candles,
-        live_candle: &first_live,
-    };
-    evaluator.price_evaluator(&first_view);
-
-    let second_live = candle(31.0);
-    let second_view = MarketView {
-        key: &key,
-        closed_candles: &closed_candles,
-        live_candle: &second_live,
-    };
-    let alerts = evaluator.price_evaluator(&second_view);
-
-    assert_eq!(alerts.len(), 1);
-    assert!(matches!(
-        alerts[0].event,
-        Event::ManualPriceTriggered {
-            trigger_price: 30.0,
-            ..
-        }
-    ));
 }

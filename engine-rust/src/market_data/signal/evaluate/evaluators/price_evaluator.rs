@@ -4,13 +4,10 @@ use crate::market_data::{
     engine::MarketView,
     signal::{
         event::{Alert, Event},
-        price::{AlertBook, ManualPriceAlert, ManualPriceDirection},
+        price::AlertBook,
     },
     types::Coins,
 };
-
-const TEST_HYPE_ABOVE_PRICE: f64 = 47.6;
-const TEST_HYPE_BELOW_PRICE: f64 = 47.4;
 
 pub struct PriceEvaluator {
     alert_book: AlertBook,
@@ -19,29 +16,9 @@ pub struct PriceEvaluator {
 
 impl PriceEvaluator {
     pub fn new() -> Self {
-        let mut alert_book = AlertBook::new();
-        /* Hardcoded for runtime testing until the alert stream starts feeding this book */
-        let test_alerts = [
-            ManualPriceAlert::new(
-                Coins::HYPE,
-                TEST_HYPE_ABOVE_PRICE,
-                ManualPriceDirection::Above,
-            ),
-            ManualPriceAlert::new(
-                Coins::HYPE,
-                TEST_HYPE_BELOW_PRICE,
-                ManualPriceDirection::Below,
-            ),
-        ];
-
-        for alert in test_alerts {
-            if let Err(err) = alert_book.insert_alert(alert) {
-                tracing::error!(error = %err, "Could not insert hardcoded manual price alert");
-            }
-        }
-
         PriceEvaluator {
-            alert_book,
+            /* TODO: feed this book from the future alert subscription stream */
+            alert_book: AlertBook::new(),
             last_price_by_coin: HashMap::new(),
         }
     }
