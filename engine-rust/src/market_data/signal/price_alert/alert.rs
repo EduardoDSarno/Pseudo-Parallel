@@ -28,19 +28,17 @@ pub struct ManualPriceAlert
     pub coin: Coins,
     pub trigger_price: f64,
     pub direction: ManualPriceDirection,
-    pub active: bool,
 }
 
 impl ManualPriceAlert
 {
-    pub fn new(coin: Coins, trigger_p: f64, direction: ManualPriceDirection, active: bool) -> Self
+    pub fn new(coin: Coins, trigger_p: f64, direction: ManualPriceDirection) -> Self
     {
         ManualPriceAlert
         {
             coin: coin,
             trigger_price: trigger_p,
             direction: direction,
-            active: active,
         }
     }
 

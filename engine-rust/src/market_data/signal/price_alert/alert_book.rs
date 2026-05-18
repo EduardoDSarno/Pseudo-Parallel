@@ -10,7 +10,13 @@ use crate::Error;
     Giving it's IndividualBook then inside each Indivual Book we divided between above and 
     below represeting alerts that are to be triggered if the price cross above or below the
     threshold. Inside each map we use a BTree to store self balacing individual alerts, based 
-    on the PriceKey which links to The individual Alert*/
+    on the PriceKey which links to The individual Alert
+
+    The design was made to be a realtionship one to many between users and alerts where multiple users
+    can point to the same alert insated of creating duplications
+    
+    The wrapper of ManualPriceAlertEntry was added for the integreation of users and Alerts
+    since the map needs to know how many entries it has for a Alert to track deletion*/
 
 
 
@@ -18,14 +24,60 @@ use crate::Error;
 #[derive(Debug, Clone, Default)]
 pub struct IndividualPriceAlertBook
 {
-    above_map: BTreeMap<PriceKey, ManualPriceAlert>,
-    below_map: BTreeMap<PriceKey, ManualPriceAlert>,
+    above_map: BTreeMap<PriceKey, ManualPriceAlertEntry>,
+    below_map: BTreeMap<PriceKey, ManualPriceAlertEntry>,
+}
+
+/* Internal storage record for one shared alert rule */
+#[derive(Debug, Clone)]
+pub struct ManualPriceAlertEntry
+{
+    alert: ManualPriceAlert,
+    subscriber_count: usize,
+}
+
+impl ManualPriceAlertEntry
+{
+    /* Creates a new entry for one shared alert with one subscriber */
+    fn new(alert: ManualPriceAlert) -> Self
+    {
+        ManualPriceAlertEntry
+        {
+            alert: alert,
+            subscriber_count: 1,
+        }
+    }
+
+    /* Adds one more subscriber to this shared rule */
+    fn add_subscriber(&mut self)
+    {
+        self.subscriber_count += 1;
+    }
+
+    /* Decrements and Return if still subscriber */
+    fn remove_subscriber(&mut self) -> bool
+    {
+        self.subscriber_count -= 1;
+        self.subscriber_count == 0
+    }
+
+    /* Returns the alert definition stored in this entry */
+    pub fn alert(&self) -> &ManualPriceAlert
+    {
+        &self.alert
+    }
+
+    /* Returns how many subscribers point at this rule */
+    pub fn subscriber_count(&self) -> usize
+    {
+        self.subscriber_count
+    }
 }
 
 impl IndividualPriceAlertBook
 {
     /* Match direction */
-    fn map_mut(&mut self, direction: ManualPriceDirection) -> &mut BTreeMap<PriceKey, ManualPriceAlert>
+    fn map_mut(&mut self, direction: ManualPriceDirection) -> &mut BTreeMap<PriceKey, ManualPriceAlertEntry>
     {
         match direction 
         {
@@ -34,31 +86,55 @@ impl IndividualPriceAlertBook
         }
     }
 
+    /* Returns the above or below map for reading */
+    fn map_ref(&self, direction: ManualPriceDirection) -> &BTreeMap<PriceKey, ManualPriceAlertEntry>
+    {
+        match direction
+        {
+            ManualPriceDirection::Above => &self.above_map,
+            ManualPriceDirection::Below => &self.below_map,
+        }
+    }
+
+    /* Looks up an alert by price level and direction */
     pub fn get(&self, price_key: PriceKey, direction: ManualPriceDirection) -> Option<&ManualPriceAlert>
     {
-        match direction 
-        {
-            ManualPriceDirection::Above => self.above_map.get(&price_key),
-            ManualPriceDirection::Below => self.below_map.get(&price_key),
-        }
+        self.map_ref(direction)
+            .get(&price_key)
+            .map(|entry| entry.alert())
     }
 
-    /* Insert if inexistent */
-    pub fn insert(&mut self, price_key: PriceKey, direction: ManualPriceDirection, alert: ManualPriceAlert) -> Result<(), String>
+    /* Looks up the full entry by price level and direction */
+    pub fn get_entry(&self, price_key: PriceKey, direction: ManualPriceDirection) -> Option<&ManualPriceAlertEntry>
+    {
+        self.map_ref(direction).get(&price_key)
+    }
+
+    /* Insert if inexistent; otherwise add one more subscriber to the shared rule */
+    pub fn insert(&mut self, price_key: PriceKey, direction: ManualPriceDirection, alert: ManualPriceAlert)
     {
         let map = self.map_mut(direction);
-        if map.contains_key(&price_key)
-        {
-            return Err(format!("alert already exists at this price level ({:?}, {:?})", price_key, direction));
-        }
-        map.insert(price_key, alert);
-        Ok(())
+        map.entry(price_key)
+            .and_modify(|entry| entry.add_subscriber())
+            .or_insert_with(|| ManualPriceAlertEntry::new(alert));
     }
 
-    /* Remove with no Check because bTree remove already does that */
+    /* Remove one subscriber. Delete the shared rule only when nobody points to it anymore */
     pub fn remove(&mut self, price_key: PriceKey, direction: ManualPriceDirection) -> Option<ManualPriceAlert>
     {
-        self.map_mut(direction).remove(&price_key)
+        let map = self.map_mut(direction);
+        let should_remove = match map.get_mut(&price_key)
+        {
+            Some(entry) => entry.remove_subscriber(),
+            None => return None,
+        };
+
+        if should_remove
+        {
+            return map.remove(&price_key).map(|entry| entry.alert);
+        }
+
+        map.get(&price_key).map(|entry| entry.alert.clone())
     }
 }
 
@@ -70,6 +146,7 @@ pub struct AlertBook
 
 impl AlertBook
 {
+    /* Creates an empty alert book */
     pub fn new() -> Self
     {
         AlertBook 
@@ -78,24 +155,19 @@ impl AlertBook
         }
     }
 
+    /* Inserts alert or adds a subscriber if the rule already exists */
     pub fn insert_alert(&mut self, alert: ManualPriceAlert) -> Result<AlertKey, Box<dyn Error>>
     {
         let key = alert.alert_key()?;
         let book = self.book_for_coin(key.coin);
 
-        if let Some(existing) = book.get(key.price_key, key.direction) 
-        {
-            tracing::debug!(?key, "alert already exists, reusing key");
-            return existing.alert_key();
-        }
+        book.insert(key.price_key, key.direction, alert);
 
-        book.insert(key.price_key, key.direction, alert)
-            .map_err(|e| -> Box<dyn Error> { e.into() })?;
-
-        tracing::debug!(?key, coin = ?key.coin, "alert inserted");
+        tracing::debug!(?key, coin = ?key.coin, "alert inserted or subscriber added");
         Ok(key)
     }
 
+    /* Removes one subscriber; deletes the rule when nobody points to it */
     pub fn delete_alert(&mut self, key: AlertKey) -> Result<ManualPriceAlert, Box<dyn Error>>
     {
         match self.books.get_mut(&key.coin) 
@@ -106,6 +178,7 @@ impl AlertBook
         }
     }
 
+    /* Returns the alert for a key if it exists */
     pub fn get_alert(&self, key: &AlertKey) -> Option<&ManualPriceAlert>
     {
         match self.books.get(&key.coin) 
@@ -117,16 +190,28 @@ impl AlertBook
 
     /* HELPERS */
 
+    /* Returns true if this alert key exists */
     pub fn contains_key(&self, key: &AlertKey) -> bool
     {
         self.get_alert(key).is_some()
     }
 
+    /* Returns how many subscribers share this alert key */
+    pub fn subscriber_count(&self, key: &AlertKey) -> Option<usize>
+    {
+        self.books
+            .get(&key.coin)
+            .and_then(|book| book.get_entry(key.price_key, key.direction))
+            .map(|entry| entry.subscriber_count())
+    }
+
+    /* Gets or creates the alert book for a coin */
     pub fn book_for_coin(&mut self, coin: Coins) -> &mut IndividualPriceAlertBook
     {
         self.books.entry(coin).or_default()
     }
 
+    /* Returns the alert book for a coin without creating it */
     pub fn book_for_coin_ref(&self, coin: Coins) -> Option<&IndividualPriceAlertBook>
     {
         self.books.get(&coin)
