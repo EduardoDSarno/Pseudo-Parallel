@@ -5,7 +5,7 @@ use crate::market_data::types::{Candle, CandleKey};
 // the current data we need
 pub struct Engine
 {
-    pub buffers: HashMap<CandleKey, VecDeque<Candle>>,
+    pub(super) buffers: HashMap<CandleKey, VecDeque<Candle>>,
     last_seen: HashMap<CandleKey, Candle>,
     pub(super) max_closed_candles: usize,
 }
@@ -27,6 +27,11 @@ impl Engine
     pub fn last_seen(&self, candle_key: &CandleKey) -> Option<&Candle>
     {
         self.last_seen.get(candle_key)
+    }
+
+    pub fn closed_buffer(&self, candle_key: &CandleKey) -> Option<&VecDeque<Candle>>
+    {
+        self.buffers.get(candle_key)
     }
 
     pub fn set_last_seen(&mut self, candle_key: CandleKey, candle: Candle)

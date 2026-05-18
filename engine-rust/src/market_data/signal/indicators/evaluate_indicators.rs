@@ -39,7 +39,7 @@ impl Evaluator
     pub fn evaluate_live_breakout(&mut self, engine: &Engine, candle: &Candle) -> Option<BreakoutAlert>
     {
         let key = CandleKey::create_key_from_candle(candle);
-        let buf = engine.buffers.get(&key)?;
+        let buf = engine.closed_buffer(&key)?;
 
         if buf.len() < self.max_closed_candles
         {

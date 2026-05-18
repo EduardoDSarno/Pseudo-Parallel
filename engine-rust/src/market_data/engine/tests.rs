@@ -62,7 +62,7 @@ fn seed_candles_trims_to_configured_size()
 
     engine.seed_candles(candles).unwrap();
 
-    let buffer = engine.buffers.get(&test_key()).unwrap();
+    let buffer = engine.closed_buffer(&test_key()).unwrap();
 
     assert_eq!(buffer.len(), TEST_MAX_CLOSED_CANDLES);
     assert_eq!(buffer.front().unwrap().open_time_ms, 2 * M5_INTERVAL_MS);
@@ -92,6 +92,6 @@ fn push_closed_candle_caps_buffer_at_configured_size()
         );
     }
 
-    assert_eq!(engine.buffers.get(&test_key()).unwrap().front().unwrap().open_time_ms, M5_INTERVAL_MS);
-    assert_eq!(engine.buffers.get(&test_key()).unwrap().len(), TEST_MAX_CLOSED_CANDLES);
+    assert_eq!(engine.closed_buffer(&test_key()).unwrap().front().unwrap().open_time_ms, M5_INTERVAL_MS);
+    assert_eq!(engine.closed_buffer(&test_key()).unwrap().len(), TEST_MAX_CLOSED_CANDLES);
 }
