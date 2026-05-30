@@ -5,7 +5,9 @@ use crate::market_data::{
             indicator_evaluator::IndicatorEvaluator, price_evaluator::PriceEvaluator,
         },
         event::Alert,
+        price::PriceAlertService,
     },
+    types::Coins,
 };
 
 pub struct EventEvaluator {
@@ -21,12 +23,21 @@ impl EventEvaluator {
         }
     }
 
-    pub fn evaluate(&mut self, view: &MarketView<'_>) -> Vec<Alert> {
-        let mut alerts = Vec::new();
-
-        alerts.extend(self.price_evaluator.price_evaluator(view));
-        alerts.extend(self.indicator_evaluator.evaluate_indicator(view));
-
-        alerts
+    pub fn evaluate_price(
+        &self,
+        alert_service: &PriceAlertService,  // borrowed each call
+        coin: Coins,
+        previous_price: f64,
+        current_price: f64,
+    ) -> Vec<Alert> {
+        self.price_evaluator.evaluate_price(
+            alert_service,
+            coin,
+            previous_price,
+            current_price,
+        )
+    }
+    pub fn evaluate_indicators(&mut self, view: &MarketView<'_>) -> Vec<Alert> {
+        self.indicator_evaluator.evaluate_indicator(view)
     }
 }

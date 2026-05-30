@@ -24,7 +24,7 @@ impl IndicatorEvaluator {
 
         if let Some(atr_alert) = self.atr_evaluator.evaluate_atr(view) {
             if let Some(baseline) = atr_alert.atr.baseline() {
-                alerts.push(Alert::new(
+                alerts.push(Alert::indicator(
                     atr_alert.key,
                     Event::AtrBreakout {
                         atr: baseline,
