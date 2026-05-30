@@ -1,7 +1,7 @@
 use crate::market_data::{
     constans::HYPERLIQUID_WS_URL,
-    coordinator::MarketDataCoordinator,
     hyperliquid::protocols::{inbound::InboundMessage, subscribe::SubscribeToChannelReq},
+    runtime::MarketDataRuntime,
     types::Candle,
 };
 use futures_util::{SinkExt, StreamExt};
@@ -10,7 +10,7 @@ use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, Web
 
 pub async fn run_hyperliquid_client(
     subs: Vec<SubscribeToChannelReq>,
-    coordinator: &mut MarketDataCoordinator,
+    runtime: &mut MarketDataRuntime,
 ) -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!(subscriptions = subs.len(), "Starting Hyperliquid client");
 
@@ -28,7 +28,7 @@ pub async fn run_hyperliquid_client(
 
     while let Some(result) = ws_stream.next().await {
         // It will return false when closed
-        if !read_message(result, coordinator) {
+        if !read_message(result, runtime) {
             break;
         }
     }
@@ -56,12 +56,12 @@ with one of our message inbounds otherwise it will match with different types of
  */
 fn read_message(
     result: Result<Message, tokio_tungstenite::tungstenite::Error>,
-    coordinator: &mut MarketDataCoordinator,
+    runtime: &mut MarketDataRuntime,
 ) -> bool {
     match result {
         Ok(Message::Text(text)) => {
             let deserialized = serde_json::from_str::<InboundMessage>(&text);
-            let _ = match_response(deserialized, coordinator);
+            let _ = match_response(deserialized, runtime);
             true
         }
         // Tokio tungstain handles automatically
@@ -91,7 +91,7 @@ fn read_message(
 /* THis function is soly responsible for matching the message with one of our inbounds streams */
 fn match_response(
     message_response: Result<InboundMessage, serde_json::Error>,
-    coordinator: &mut MarketDataCoordinator,
+    runtime: &mut MarketDataRuntime,
 ) -> Result<(), Box<dyn std::error::Error>> {
     match message_response {
         Ok(InboundMessage::SubscriptionResponse(response)) => {
@@ -103,7 +103,7 @@ fn match_response(
             let candle = Candle::try_from(candle_hl).inspect_err(
                 |err| tracing::error!(error = %err, "Could not convert inbound candle"),
             )?;
-            coordinator.handle_candle(candle);
+            runtime.handle_candle(candle);
             Ok(())
         }
         Ok(InboundMessage::Error(msg)) => {

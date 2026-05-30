@@ -1,12 +1,10 @@
 use crate::market_data::{
-    coordinator::MarketDataCoordinator,
-    signal::event::Event,
-    types::{Candle, CandleKey},
+    runtime::MarketDataRuntime,
+    signal::event::{Alert, Event},
+    types::{Candle, CandleKey, Coins},
 };
 
-impl MarketDataCoordinator {
-    /* This function is used to handle new incoming candles, by adding them to VECDEQUE
-    and checking for breakout*/
+impl MarketDataRuntime {
     pub fn handle_candle(&mut self, candle: Candle) {
         let candle_key = CandleKey::create_key_from_candle(&candle);
 
@@ -18,15 +16,18 @@ impl MarketDataCoordinator {
             }
         }
 
-        // adding new candle
-        self.engine.set_last_seen(candle_key.clone(), candle);
+        self.engine.set_last_seen(candle_key.clone(), candle.clone());
 
-        // Checking for breakout
-        let Some(view) = self.engine.market_view(&candle_key) else {
-            return;
-        };
+        let coin = candle.coin;
+        let current_price = candle.close_price;
 
-        for alert in self.event_evaluator.evaluate(&view) {
+        let mut alerts = self.price_alerts_if_coin_price_changed(coin, current_price);
+
+        if let Some(view) = self.engine.market_view(&candle_key) {
+            alerts.extend(self.event_evaluator.evaluate_indicators(&view));
+        }
+
+        for alert in alerts {
             match alert.event {
                 Event::AtrBreakout {
                     atr,
@@ -35,10 +36,10 @@ impl MarketDataCoordinator {
                     spike_level,
                     open_time_ms,
                 } => {
-                    tracing::info!
-                    (
-                        coin = ?alert.key.coin,
-                        interval = ?alert.key.interval,
+                    let key = alert.key.expect("ATR alerts always carry a candle key");
+                    tracing::info!(
+                        coin = ?alert.coin,
+                        interval = ?key.interval,
                         open_time = open_time_ms,
                         atr = atr,
                         live_tr = live_tr,
@@ -53,10 +54,8 @@ impl MarketDataCoordinator {
                     previous_price,
                     current_price,
                 } => {
-                    tracing::info!
-                    (
-                        coin = ?alert.key.coin,
-                        interval = ?alert.key.interval,
+                    tracing::info!(
+                        coin = ?alert.coin,
                         trigger_price = trigger_price,
                         direction = ?direction,
                         previous_price = previous_price,
@@ -66,5 +65,26 @@ impl MarketDataCoordinator {
                 }
             }
         }
+    }
+
+    fn price_alerts_if_coin_price_changed(&mut self, coin: Coins, current_price: f64) -> Vec<Alert> {
+        let Some(&previous_price) = self.last_market_price_by_coin.get(&coin) else {
+            self.last_market_price_by_coin.insert(coin, current_price);
+            return Vec::new();
+        };
+
+        if previous_price == current_price {
+            return Vec::new();
+        }
+
+        self.last_market_price_by_coin
+            .insert(coin, current_price);
+
+        self.event_evaluator.evaluate_price(
+            self.alert_service(),
+            coin,
+            previous_price,
+            current_price,
+        )
     }
 }

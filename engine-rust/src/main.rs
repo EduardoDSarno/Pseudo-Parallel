@@ -2,8 +2,8 @@ use std::error::Error;
 
 use crate::market_data::{
     config::MarketDataConfig,
-    coordinator::MarketDataCoordinator,
     hyperliquid::{hl_client::run_hyperliquid_client, protocols::subscribe::subscribe_candle},
+    runtime::MarketDataRuntime,
     startup::seed_engine_from_rest,
     types::{CandleKey, Coins, Interval},
 };
@@ -16,7 +16,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     tracing::info!("Engine starting");
 
     let market_data_config = MarketDataConfig::default();
-    let mut coordinator = MarketDataCoordinator::new(market_data_config);
+    let mut runtime = MarketDataRuntime::new(market_data_config);
     tracing::info!(
         max_closed_candles = market_data_config.max_closed_candles,
         "Market data engine initialized"
@@ -31,7 +31,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     tracing::info!(streams = candle_keys.len(), candle_keys = ?candle_keys, "Candle streams configured");
 
     tracing::info!("Starting REST seed");
-    seed_engine_from_rest(&mut coordinator, &candle_keys).await?;
+    seed_engine_from_rest(&mut runtime, &candle_keys).await?;
     tracing::info!("REST seed finished");
 
     // Create the WebSocket subscriptions from the same keys we already seeded.
@@ -42,7 +42,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     tracing::info!("WebSocket subscriptions created");
 
     tracing::info!("Starting live market data stream");
-    run_hyperliquid_client(subs, &mut coordinator).await?;
+    run_hyperliquid_client(subs, &mut runtime).await?;
     tracing::warn!("Live market data stream stopped");
 
     Ok(())

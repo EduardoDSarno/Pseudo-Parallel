@@ -4,23 +4,23 @@ use std::{
 };
 
 use crate::market_data::{
-    coordinator::MarketDataCoordinator,
     hyperliquid::{
         hl_rest_client::send_multiple_info_requests,
         protocols::rest::{CandleSnapshotRequest, RestRequest},
     },
+    runtime::MarketDataRuntime,
     types::CandleKey,
 };
 
 /* This function seeds the engine with previous REST candles before starting the
 live WebSocket stream, so the engine starts with a hot buffer instead of empty data. */
 pub async fn seed_engine_from_rest(
-    coordinator: &mut MarketDataCoordinator,
+    runtime: &mut MarketDataRuntime,
     candle_keys: &[CandleKey],
 ) -> Result<(), Box<dyn Error>> {
     let end_time = current_time_ms()?;
     let mut requests: Vec<RestRequest> = Vec::new();
-    let max_closed_candles = coordinator.max_closed_candles();
+    let max_closed_candles = runtime.max_closed_candles();
 
     tracing::info!(
         streams = candle_keys.len(),
@@ -44,7 +44,7 @@ pub async fn seed_engine_from_rest(
     let responses = send_multiple_info_requests(requests).await?;
     tracing::info!(responses = responses.len(), "REST seed responses received");
 
-    coordinator
+    runtime
         .seed_from_rest_responses(responses)
         .inspect_err(|err| tracing::error!(error = %err, "REST seed failed"))
         .map_err(|err| std::io::Error::new(std::io::ErrorKind::InvalidData, err))?;
