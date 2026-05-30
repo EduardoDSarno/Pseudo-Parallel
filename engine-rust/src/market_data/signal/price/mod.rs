@@ -1,9 +1,11 @@
 pub mod alert;
-pub mod alert_book;
+pub mod key;
+pub mod price_book;
+pub mod service;
+
+pub use alert::{AlertKey, ManualPriceAlert};
+pub use key::{ManualPriceDirection, PriceKey};
+pub use service::PriceAlertService;
 
 #[cfg(test)]
 mod tests;
-
-#[allow(unused_imports)]
-pub use alert::{ManualPriceAlert, ManualPriceDirection};
-pub use alert_book::AlertBook;

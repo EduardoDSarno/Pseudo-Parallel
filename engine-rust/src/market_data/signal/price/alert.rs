@@ -1,27 +1,17 @@
 #![allow(dead_code)]
 
-use crate::market_data::{constans::PRICE_SCALE, types::Coins};
+use crate::market_data::{
+    signal::price::{
+        key::{LevelKey, ManualPriceDirection, PriceKey},
+        price_book::entry::PriceLevelEntry,
+    },
+    types::Coins,
+};
 use crate::Error;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum ManualPriceDirection {
-    Above,
-    Below,
-}
+pub use crate::market_data::signal::price::key::{LevelKey as AlertKey}; // alaias for naming preference
 
-/* For float conversion since BTree does not work with float due to NaN values */
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct PriceKey(pub i64);
-
-/* Full rule identity: coin + price level + direction */
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct AlertKey {
-    pub coin: Coins,
-    pub price_key: PriceKey,
-    pub direction: ManualPriceDirection,
-}
-
-/* The ALert Structure itself */
+/* The alert struct is suppose to the the user facing rule for the alers*/
 #[derive(Debug, Clone)]
 pub struct ManualPriceAlert {
     pub coin: Coins,
@@ -32,14 +22,24 @@ pub struct ManualPriceAlert {
 impl ManualPriceAlert {
     pub fn new(coin: Coins, trigger_p: f64, direction: ManualPriceDirection) -> Self {
         ManualPriceAlert {
-            coin: coin,
+            coin,
             trigger_price: trigger_p,
-            direction: direction,
+            direction,
         }
     }
 
-    /*Returns a Result alert key for the ManualPriceALert*/
-    pub fn alert_key(&self) -> Result<AlertKey, Box<dyn Error>> {
+    /* Maps then indivual alert from the books entry, for visualization */
+    pub fn from_level(coin: Coins, direction: ManualPriceDirection, entry: &PriceLevelEntry) -> Self {
+        ManualPriceAlert 
+        {
+            coin,
+            trigger_price: entry.trigger_price,
+            direction,
+        }
+    }
+
+    pub fn alert_key(&self) -> Result<LevelKey, Box<dyn Error>>
+    {
         let price_key = match PriceKey::from_price(self.trigger_price) {
             Some(key) => key,
             None => {
@@ -51,27 +51,6 @@ impl ManualPriceAlert {
             }
         };
 
-        Ok(AlertKey::new(self.coin, price_key, self.direction))
-    }
-}
-
-/* Price Key converter to go around f64 NAN limitation in search */
-impl PriceKey {
-    pub fn from_price(price: f64) -> Option<PriceKey> {
-        if !price.is_finite() || price <= 0.0 {
-            return None;
-        }
-
-        Some(PriceKey((price * PRICE_SCALE).round() as i64))
-    }
-}
-
-impl AlertKey {
-    pub fn new(coin: Coins, price_key: PriceKey, direction: ManualPriceDirection) -> Self {
-        AlertKey {
-            coin: coin,
-            price_key: price_key,
-            direction: direction,
-        }
+        Ok(LevelKey::new(self.coin, price_key, self.direction))
     }
 }
