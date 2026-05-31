@@ -16,8 +16,7 @@ pub struct PriceAlertService {
 
 impl PriceAlertService {
     pub fn new() -> Self {
-        PriceAlertService 
-        {
+        PriceAlertService {
             book: PriceBook::new(),
         }
     }
@@ -74,8 +73,7 @@ impl PriceAlertService {
     }
 
     pub fn contains(&self, key: &AlertKey) -> bool {
-        self.book
-            .contains(key.coin, key.price_key, key.direction)
+        self.book.contains(key.coin, key.price_key, key.direction)
     }
 
     pub fn subscriber_count(&self, key: &AlertKey) -> Option<usize> {
@@ -99,7 +97,7 @@ impl PriceAlertService {
             .collect()
     }
 
-     /* Return levels crossed below per coin */
+    /* Return levels crossed below per coin */
     pub fn crossed_below(
         &self,
         coin: Coins,

@@ -7,11 +7,10 @@ use crate::market_data::{
     types::Coins,
 };
 
-impl MarketDataRuntime 
-{
+impl MarketDataRuntime {
     /* This function will coordinate the alert triggergin on price change. It's job is to update the price
-        then evaluate if any alerts were triggered, them from the alerts trigger we get the key levels in our price books
-        of which will be disarmed*/
+    then evaluate if any alerts were triggered, them from the alerts trigger we get the key levels in our price books
+    of which will be disarmed*/
     pub(crate) fn price_alerts_if_coin_price_changed(
         &mut self,
         coin: Coins,
@@ -42,7 +41,7 @@ impl MarketDataRuntime
 }
 
 /* This functions is responsible for each alert triggeed to create a key of the levelKey of the alers and return the
-    combination of them */
+combination of them */
 fn level_keys_from_manual_price_alerts_fired(alerts: &[Alert]) -> Vec<LevelKey> {
     let mut keys = Vec::new();
 

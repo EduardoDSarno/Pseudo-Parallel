@@ -41,7 +41,7 @@ pub async fn seed_engine_from_rest(
             "REST seed attempt"
         );
 
-        match try_seed_candle_once(runtime, &requests, candle_keys).await {
+        match try_seed_candle_once(runtime, &requests, candle_keys, end_time).await {
             Ok(()) => {
                 tracing::info!(attempt, "REST seed succeeded");
                 return Ok(());
@@ -79,13 +79,14 @@ async fn try_seed_candle_once(
     runtime: &mut MarketDataRuntime,
     requests: &[RestRequest],
     candle_keys: &[CandleKey],
+    seed_end_time: u64,
 ) -> Result<(), Box<dyn Error>> {
     let responses = send_multiple_info_requests(requests.to_vec()).await?;
     tracing::info!(responses = responses.len(), "REST seed responses received");
 
     // seed_candles also sets last_seen from the latest REST bar (see engine/seed.rs)
     runtime
-        .seed_from_rest_responses(responses)
+        .seed_from_rest_responses(responses, seed_end_time)
         .map_err(|err| std::io::Error::new(std::io::ErrorKind::InvalidData, err))?;
 
     // per-stream check: closed_len == max_closed_candles and last_seen present
@@ -105,32 +106,30 @@ fn build_seed_requests(
     max_closed_candles: usize,
 ) -> Result<Vec<RestRequest>, Box<dyn Error>> {
     let mut requests: Vec<RestRequest> = Vec::new();
+    let requested_candles = max_closed_candles + 1;
 
     for candle_key in candle_keys {
-        let start_time = end_time - (candle_key.interval.to_ms() * max_closed_candles as u64);
+        let start_time = end_time - (candle_key.interval.to_ms() * requested_candles as u64);
         tracing::debug!(
             coin = ?candle_key.coin,
             interval = ?candle_key.interval,
             start_time,
             end_time,
+            requested_candles,
             "Building candle snapshot request"
         );
 
-        let snapshot_request = CandleSnapshotRequest::new(
-            candle_key.clone(),
-            start_time,
-            end_time,
-            max_closed_candles,
-        )
-        .inspect_err(|err| {
-            tracing::error!(
-                coin = ?candle_key.coin,
-                interval = ?candle_key.interval,
-                error = %err,
-                "Candle snapshot request failed"
-            )
-        })
-        .map_err(|err| std::io::Error::new(std::io::ErrorKind::InvalidInput, err))?;
+        let snapshot_request =
+            CandleSnapshotRequest::new(candle_key.clone(), start_time, end_time, requested_candles)
+                .inspect_err(|err| {
+                    tracing::error!(
+                        coin = ?candle_key.coin,
+                        interval = ?candle_key.interval,
+                        error = %err,
+                        "Candle snapshot request failed"
+                    )
+                })
+                .map_err(|err| std::io::Error::new(std::io::ErrorKind::InvalidInput, err))?;
 
         requests.push(RestRequest::CandleSnapshot(snapshot_request));
     }

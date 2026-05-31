@@ -14,7 +14,7 @@ impl PriceEvaluator {
     }
 
     /* THis function will be called in every price update where we will check for alerts per coin looking up in alert
-        service */
+    service */
     pub fn evaluate_price(
         &self,
         alert_service: &PriceAlertService,

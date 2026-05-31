@@ -1,6 +1,6 @@
 use crate::market_data::{
-    signal::price::{PriceAlertService, ManualPriceDirection},
     signal::price::alert::ManualPriceAlert,
+    signal::price::{ManualPriceDirection, PriceAlertService},
     types::Coins,
 };
 
@@ -119,12 +119,8 @@ fn no_crossing_returns_empty_alerts() {
         .subscribe(alert(ManualPriceDirection::Below))
         .unwrap();
 
-    assert!(service
-        .crossed_above(Coins::HYPE, 43.0, 41.0)
-        .is_empty());
-    assert!(service
-        .crossed_below(Coins::HYPE, 41.0, 43.0)
-        .is_empty());
+    assert!(service.crossed_above(Coins::HYPE, 43.0, 41.0).is_empty());
+    assert!(service.crossed_below(Coins::HYPE, 41.0, 43.0).is_empty());
 }
 
 #[test]

@@ -7,9 +7,9 @@ use crate::market_data::{
 };
 
 /*The WebSocket can stay connected while one candle stream (e.g. HYPE 15m) stops sending updates.
- Reconnect logic only helps when the whole socket dies. This module watches each subscribed CandleKey 
- and logs a warning if it goes too long without a candle. It does not fix the stream (no resubscribe, no reconnect). 
- It only detects and logs.*/
+Reconnect logic only helps when the whole socket dies. This module watches each subscribed CandleKey
+and logs a warning if it goes too long without a candle. It does not fix the stream (no resubscribe, no reconnect).
+It only detects and logs.*/
 
 struct StreamEntry {
     last_candle: Option<Instant>,

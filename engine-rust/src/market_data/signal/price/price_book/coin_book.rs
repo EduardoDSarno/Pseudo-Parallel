@@ -10,14 +10,12 @@ use crate::market_data::signal::price::{
 
 /* deivides in 2 ,maps for quicker search */
 #[derive(Debug, Clone, Default)]
-pub struct CoinPriceBook 
-{
+pub struct CoinPriceBook {
     above_map: BTreeMap<PriceKey, PriceLevelEntry>,
     below_map: BTreeMap<PriceKey, PriceLevelEntry>,
 }
 
-impl CoinPriceBook 
-{
+impl CoinPriceBook {
     fn get_map_mut(
         &mut self,
         direction: ManualPriceDirection,
@@ -28,10 +26,7 @@ impl CoinPriceBook
         }
     }
 
-    fn get_map_ref(
-        &self,
-        direction: ManualPriceDirection,
-    ) -> &BTreeMap<PriceKey, PriceLevelEntry> {
+    fn get_map_ref(&self, direction: ManualPriceDirection) -> &BTreeMap<PriceKey, PriceLevelEntry> {
         match direction {
             ManualPriceDirection::Above => &self.above_map,
             ManualPriceDirection::Below => &self.below_map,

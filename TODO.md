@@ -2,22 +2,26 @@
 
 ## Finish `market_data` (before leaving the module)
 
-Complete this list before alert subscription stream / API / `backend-ts` wiring.
+Complete the **medium** list below before alert subscription stream / API / `backend-ts` wiring. Do **evaluator pass last** — full price + ATR + pipeline verification is the gate for leaving `market_data`.
 
-### High (correctness / ops)
+### High (correctness / ops) — done
 
 - [x] **`market_view` missing** — `signals.rs` logs why (buffer / `last_seen` / `closed_len`); `debug` when warming up, `warn` when unexpected.
 - [x] **Seed strictness** — 3 REST attempts with backoff, fail if still short; `last_seen` on seed; `verify_seeded_keys`; ingest dedup on bar roll.
-- [ ] **Evaluator pass** — confirm cross rules + ATR behavior:
-  - Manual price: directional cross on coin **close** only (not wick-only / high-low containment).
-  - ATR: baseline from closed buffer; live TR from current candle; spike-level dedup in ATR evaluator.
-  - Flow: `process` → `candle_ingest` → `run_signals` → `dispatch`.
 
 ### Medium (clarity / maintainability)
+
+Do in order; **evaluator pass** is the last item before the module is finished.
 
 - [ ] **Name/document engine role** — comment or `CandleEngine` alias so it’s clear `Engine` is candle storage, not whole runtime state.
 - [ ] **Fill `engine-rust/docs/ENGINE.md`** — candle store contract, REST seed, `MarketView` requirements.
 - [ ] **Optional integration test** — ingest → signals → disarm (no HTTP).
+- [ ] **Per-user indicator thresholds** — today ATR uses global `ATR_BREAKOUT_RATIO` (not like `ManualPriceAlert` where each user sets a level). Later: indicator subscribe/catalog (e.g. per-user breakout ratio or spike level per `CandleKey`), evaluator reads user rule instead of only `constans`.
+- [ ] **Evaluator pass** *(last — finish `market_data`)* — confirm cross rules + ATR behavior:
+  - Manual price: directional cross on coin **close** only (not wick-only / high-low containment).
+  - ATR: baseline from closed buffer; live TR from current candle; spike-level dedup in ATR evaluator.
+  - Flow: `process` → `candle_ingest` → `run_signals` → `dispatch`.
+  - Spot-check: `cargo test`, live grep for `Manual price alert triggered` / `ATR breakout detected`; add `atr_evaluator` tests if gaps remain.
 
 ### Engine vs orchestrator (v1 — no generic engine yet)
 
@@ -31,6 +35,7 @@ Complete this list before alert subscription stream / API / `backend-ts` wiring.
 ### 1. Alert subscription stream
 
 - Wire UI/API → `MarketDataRuntime::alert_service_mut().subscribe(...)`.
+- **Auto direction on subscribe** — user supplies coin + trigger price only; set `ManualPriceDirection` from last coin close: if `current < trigger` → **Above**, if `current > trigger` → **Below** (so we always wait for the obvious cross). Reject or special-case `current == trigger`.
 - On user delete/disarm → `unsubscribe` (decrement `subscriber_count`; remove level when 0).
 - Log subscribe/unsubscribe with user id when available (coin, direction, trigger price).
 - Lives **outside** the candle pipeline (API / second task in `main` / `backend-ts`), calling into runtime.

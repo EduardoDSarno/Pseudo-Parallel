@@ -11,3 +11,5 @@ pub use market_update::MarketUpdate;
 
 #[cfg(test)]
 mod candle_ingest_tests;
+#[cfg(test)]
+mod signals_tests;

@@ -8,8 +8,8 @@ use crate::market_data::{
     types::Coins,
 };
 
-/* Price books is our top level api for the boopks it holds per each 
-    coin their coins price Books (separated above and below) */
+/* Price books is our top level api for the boopks it holds per each
+coin their coins price Books (separated above and below) */
 pub struct PriceBook {
     by_coin: HashMap<Coins, CoinPriceBook>,
 }

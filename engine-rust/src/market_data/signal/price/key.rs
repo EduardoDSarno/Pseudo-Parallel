@@ -1,8 +1,7 @@
 use crate::market_data::{constans::PRICE_SCALE, types::Coins};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum ManualPriceDirection 
-{
+pub enum ManualPriceDirection {
     Above,
     Below,
 }

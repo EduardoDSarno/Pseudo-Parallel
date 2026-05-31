@@ -102,6 +102,80 @@ fn seed_candles_sets_last_seen_from_latest_candle() {
 }
 
 #[test]
+fn seed_candles_at_keeps_forming_candle_out_of_closed_buffer() {
+    let mut engine = Engine::new(TEST_MAX_CLOSED_CANDLES);
+    let candles = (0..TEST_MAX_CLOSED_CANDLES + 1)
+        .map(|i| {
+            candle(
+                i as u64 * M5_INTERVAL_MS,
+                TEST_BASE_HIGH,
+                TEST_BASE_LOW,
+                TEST_BASE_CLOSE,
+            )
+        })
+        .collect();
+    let forming_open_time = TEST_MAX_CLOSED_CANDLES as u64 * M5_INTERVAL_MS;
+    let seed_end_time = forming_open_time + 1;
+
+    engine.seed_candles_at(candles, seed_end_time).unwrap();
+
+    let buffer = engine.closed_buffer(&test_key()).unwrap();
+    let last_seen = engine.last_seen(&test_key()).unwrap();
+
+    assert_eq!(buffer.len(), TEST_MAX_CLOSED_CANDLES);
+    assert_eq!(
+        buffer.back().unwrap().open_time_ms,
+        forming_open_time - M5_INTERVAL_MS
+    );
+    assert_eq!(last_seen.open_time_ms, forming_open_time);
+}
+
+#[test]
+fn seed_candles_at_uses_latest_closed_as_last_seen_when_no_forming_candle() {
+    let mut engine = Engine::new(TEST_MAX_CLOSED_CANDLES);
+    let candles = (0..TEST_MAX_CLOSED_CANDLES + 1)
+        .map(|i| {
+            candle(
+                i as u64 * M5_INTERVAL_MS,
+                TEST_BASE_HIGH,
+                TEST_BASE_LOW,
+                TEST_BASE_CLOSE,
+            )
+        })
+        .collect();
+    let latest_open_time = TEST_MAX_CLOSED_CANDLES as u64 * M5_INTERVAL_MS;
+    let seed_end_time = latest_open_time + M5_INTERVAL_MS + 1;
+
+    engine.seed_candles_at(candles, seed_end_time).unwrap();
+
+    let buffer = engine.closed_buffer(&test_key()).unwrap();
+    let last_seen = engine.last_seen(&test_key()).unwrap();
+
+    assert_eq!(buffer.len(), TEST_MAX_CLOSED_CANDLES);
+    assert_eq!(buffer.back().unwrap().open_time_ms, latest_open_time);
+    assert_eq!(last_seen.open_time_ms, latest_open_time);
+}
+
+#[test]
+fn seed_candles_at_rejects_short_closed_buffer_after_forming_split() {
+    let mut engine = Engine::new(TEST_MAX_CLOSED_CANDLES);
+    let candles = (0..TEST_MAX_CLOSED_CANDLES)
+        .map(|i| {
+            candle(
+                i as u64 * M5_INTERVAL_MS,
+                TEST_BASE_HIGH,
+                TEST_BASE_LOW,
+                TEST_BASE_CLOSE,
+            )
+        })
+        .collect();
+    let forming_open_time = (TEST_MAX_CLOSED_CANDLES - 1) as u64 * M5_INTERVAL_MS;
+    let seed_end_time = forming_open_time + 1;
+
+    assert!(engine.seed_candles_at(candles, seed_end_time).is_err());
+}
+
+#[test]
 fn last_seen_can_be_updated() {
     let mut engine = Engine::new(TEST_MAX_CLOSED_CANDLES);
     let live = candle(TEST_LIVE_OPEN_TIME, 102.5, TEST_BASE_CLOSE, 102.5);

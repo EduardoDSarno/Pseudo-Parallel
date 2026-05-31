@@ -8,7 +8,7 @@ pub struct IngestedCandleSnapshot {
     pub close_price: f64,
 }
 
-/* This function has the job of updating the engine, it builds a candle key 
+/* This function has the job of updating the engine, it builds a candle key
 If the previous candle for that key closed → push it into the closed-candle buffer.
  Store this candle as last seen for that key. */
 pub fn apply_candle(engine: &mut Engine, candle: Candle) -> IngestedCandleSnapshot {

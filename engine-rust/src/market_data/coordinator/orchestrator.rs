@@ -1,12 +1,10 @@
 use crate::market_data::{
-    coordinator::{
-        dispatch, market_update::MarketUpdate, signal_input::SignalInput,
-    },
+    coordinator::{dispatch, market_update::MarketUpdate, signal_input::SignalInput},
     runtime::MarketDataRuntime,
 };
 
 /* This part of the code is where the orchestration of thigs heppen feeding data, evaluating the data,
-    and running singal and logs */
+and running singal and logs */
 impl MarketDataRuntime {
     pub fn process(&mut self, update: MarketUpdate) {
         match update {

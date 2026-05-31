@@ -34,7 +34,10 @@ fn duplicate_insert_increments_subscriber_count() {
         entry(TEST_TRIGGER_PRICE),
     );
 
-    assert_eq!(book.subscriber_count(Coins::HYPE, key, ManualPriceDirection::Above), Some(2));
+    assert_eq!(
+        book.subscriber_count(Coins::HYPE, key, ManualPriceDirection::Above),
+        Some(2)
+    );
 }
 
 #[test]
@@ -61,12 +64,18 @@ fn remove_decrements_before_removing_shared_level() {
 
     assert_eq!(removed.trigger_price, TEST_TRIGGER_PRICE);
     assert!(book.contains(Coins::HYPE, key, ManualPriceDirection::Above));
-    assert_eq!(book.subscriber_count(Coins::HYPE, key, ManualPriceDirection::Above), Some(1));
+    assert_eq!(
+        book.subscriber_count(Coins::HYPE, key, ManualPriceDirection::Above),
+        Some(1)
+    );
 
     book.remove(Coins::HYPE, key, ManualPriceDirection::Above);
 
     assert!(!book.contains(Coins::HYPE, key, ManualPriceDirection::Above));
-    assert_eq!(book.subscriber_count(Coins::HYPE, key, ManualPriceDirection::Above), None);
+    assert_eq!(
+        book.subscriber_count(Coins::HYPE, key, ManualPriceDirection::Above),
+        None
+    );
 }
 
 #[test]
@@ -87,7 +96,10 @@ fn delete_level_removes_entire_slot_regardless_of_subscriber_count() {
         entry(TEST_TRIGGER_PRICE),
     );
 
-    assert_eq!(book.subscriber_count(Coins::HYPE, key, ManualPriceDirection::Above), Some(2));
+    assert_eq!(
+        book.subscriber_count(Coins::HYPE, key, ManualPriceDirection::Above),
+        Some(2)
+    );
 
     let removed = book
         .delete_level(Coins::HYPE, key, ManualPriceDirection::Above)
@@ -95,7 +107,10 @@ fn delete_level_removes_entire_slot_regardless_of_subscriber_count() {
 
     assert_eq!(removed.trigger_price, TEST_TRIGGER_PRICE);
     assert!(!book.contains(Coins::HYPE, key, ManualPriceDirection::Above));
-    assert_eq!(book.subscriber_count(Coins::HYPE, key, ManualPriceDirection::Above), None);
+    assert_eq!(
+        book.subscriber_count(Coins::HYPE, key, ManualPriceDirection::Above),
+        None
+    );
 }
 
 #[test]
@@ -116,8 +131,14 @@ fn same_price_with_different_direction_is_different_level() {
         entry(TEST_TRIGGER_PRICE),
     );
 
-    assert_eq!(book.subscriber_count(Coins::HYPE, key, ManualPriceDirection::Above), Some(1));
-    assert_eq!(book.subscriber_count(Coins::HYPE, key, ManualPriceDirection::Below), Some(1));
+    assert_eq!(
+        book.subscriber_count(Coins::HYPE, key, ManualPriceDirection::Above),
+        Some(1)
+    );
+    assert_eq!(
+        book.subscriber_count(Coins::HYPE, key, ManualPriceDirection::Below),
+        Some(1)
+    );
 }
 
 #[test]

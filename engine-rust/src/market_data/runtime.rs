@@ -17,8 +17,7 @@ main and hl_client hold a MarketDataRuntime and call into it. */
 Engine stores candles, alert_service stores price levels, event_evaluator runs
 price and indicator checks. last_market_price_by_coin tracks coin-level price
 for crossing detection (not per timeframe). */
-pub struct MarketDataRuntime 
-{
+pub struct MarketDataRuntime {
     pub engine: Engine,
     alert_service: PriceAlertService,
     pub(crate) event_evaluator: EventEvaluator,
@@ -42,8 +41,13 @@ impl MarketDataRuntime {
     }
 
     /* Wrapper so startup can seed the engine without touching engine directly */
-    pub fn seed_from_rest_responses(&mut self, responses: Vec<RestResponse>) -> Result<(), String> {
-        self.engine.seed_from_rest_responses(responses)
+    pub fn seed_from_rest_responses(
+        &mut self,
+        responses: Vec<RestResponse>,
+        seed_end_time: u64,
+    ) -> Result<(), String> {
+        self.engine
+            .seed_from_rest_responses(responses, seed_end_time)
     }
 
     pub fn verify_seeded_keys(&self, keys: &[CandleKey]) -> Result<(), String> {

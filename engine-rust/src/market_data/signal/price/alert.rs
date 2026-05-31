@@ -9,7 +9,7 @@ use crate::market_data::{
 };
 use crate::Error;
 
-pub use crate::market_data::signal::price::key::{LevelKey as AlertKey}; // alaias for naming preference
+pub use crate::market_data::signal::price::key::LevelKey as AlertKey; // alaias for naming preference
 
 /* The alert struct is suppose to the the user facing rule for the alers*/
 #[derive(Debug, Clone)]
@@ -29,17 +29,19 @@ impl ManualPriceAlert {
     }
 
     /* Maps then indivual alert from the books entry, for visualization */
-    pub fn from_level(coin: Coins, direction: ManualPriceDirection, entry: &PriceLevelEntry) -> Self {
-        ManualPriceAlert 
-        {
+    pub fn from_level(
+        coin: Coins,
+        direction: ManualPriceDirection,
+        entry: &PriceLevelEntry,
+    ) -> Self {
+        ManualPriceAlert {
             coin,
             trigger_price: entry.trigger_price,
             direction,
         }
     }
 
-    pub fn alert_key(&self) -> Result<LevelKey, Box<dyn Error>>
-    {
+    pub fn alert_key(&self) -> Result<LevelKey, Box<dyn Error>> {
         let price_key = match PriceKey::from_price(self.trigger_price) {
             Some(key) => key,
             None => {

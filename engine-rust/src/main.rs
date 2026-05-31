@@ -4,6 +4,7 @@ use crate::market_data::{
     config::MarketDataConfig,
     hyperliquid::hl_client::run_hyperliquid_client,
     runtime::MarketDataRuntime,
+    signal::price::{alert::ManualPriceAlert, ManualPriceDirection},
     startup::seed_engine_from_rest,
     types::{CandleKey, Coins, Interval},
 };
@@ -33,6 +34,29 @@ async fn main() -> Result<(), Box<dyn Error>> {
     tracing::info!("Starting REST seed");
     seed_engine_from_rest(&mut runtime, &candle_keys).await?;
     tracing::info!("REST seed finished");
+
+    // TEMP: hardcoded below alerts for live manual-price testing (remove when subscription API exists)
+    const TEST_BELOW_697: f64 = 69.3;
+    const TEST_BELOW_700: f64 = 69.7;
+    runtime
+        .alert_service_mut()
+        .subscribe(ManualPriceAlert::new(
+            Coins::HYPE,
+            TEST_BELOW_697,
+            ManualPriceDirection::Below,
+        ))?;
+    runtime
+        .alert_service_mut()
+        .subscribe(ManualPriceAlert::new(
+            Coins::HYPE,
+            TEST_BELOW_700,
+            ManualPriceDirection::Below,
+        ))?;
+    tracing::info!(
+        below_697 = TEST_BELOW_697,
+        below_700 = TEST_BELOW_700,
+        "Hardcoded HYPE below alerts armed"
+    );
 
     tracing::info!("Starting live market data stream");
     // same keys as REST seed — client rebuilds subs on each connect

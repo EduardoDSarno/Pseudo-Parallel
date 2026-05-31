@@ -25,17 +25,13 @@ impl EventEvaluator {
 
     pub fn evaluate_price(
         &self,
-        alert_service: &PriceAlertService,  // borrowed each call
+        alert_service: &PriceAlertService, // borrowed each call
         coin: Coins,
         previous_price: f64,
         current_price: f64,
     ) -> Vec<Alert> {
-        self.price_evaluator.evaluate_price(
-            alert_service,
-            coin,
-            previous_price,
-            current_price,
-        )
+        self.price_evaluator
+            .evaluate_price(alert_service, coin, previous_price, current_price)
     }
     pub fn evaluate_indicators(&mut self, view: &MarketView<'_>) -> Vec<Alert> {
         self.indicator_evaluator.evaluate_indicator(view)

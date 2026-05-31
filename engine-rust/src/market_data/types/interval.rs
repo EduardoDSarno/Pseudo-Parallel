@@ -5,7 +5,7 @@ use crate::market_data::constans::{
 };
 
 /* Enumerate intervals strings into hard values for easy use */
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum Interval {
     #[serde(rename = "1m")]
     M1,

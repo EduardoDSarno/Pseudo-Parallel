@@ -1,15 +1,13 @@
 #[derive(Debug, Clone)]
 
 /* This struct is responsible for holding dumb data, basically for each price level entry in the book
-    we just need to know how many subscribers that are and the triggering price */
-pub struct PriceLevelEntry 
-{
+we just need to know how many subscribers that are and the triggering price */
+pub struct PriceLevelEntry {
     pub trigger_price: f64,
     subscriber_count: usize,
 }
 
-impl PriceLevelEntry 
-{
+impl PriceLevelEntry {
     pub fn new(trigger_price: f64) -> Self {
         PriceLevelEntry {
             trigger_price,

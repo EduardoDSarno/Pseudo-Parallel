@@ -8,9 +8,19 @@ use crate::market_data::{
 };
 
 impl Engine {
-    /* This function has the job of seeding our The candle data with the historical previous max_closed_candles
-    candles, so it becomes a hot start insated of a cold one*/
-    pub fn seed_candles(&mut self, mut candles: VecDeque<Candle>) -> Result<(), String> {
+    /* This function seeds assuming all received candles are closed already. Tests and non-REST callers can use it. */
+    #[cfg(test)]
+    pub fn seed_candles(&mut self, candles: VecDeque<Candle>) -> Result<(), String> {
+        self.seed_candles_at(candles, u64::MAX)
+    }
+
+    /* REST can return the candle forming right now. This keeps only closed candles in the buffer
+    and stores the forming candle in last_seen so the engine has one source of truth. */
+    pub fn seed_candles_at(
+        &mut self,
+        mut candles: VecDeque<Candle>,
+        seed_end_time: u64,
+    ) -> Result<(), String> {
         // Data not passed
         if candles.is_empty() {
             let err = "cannot seed engine with empty candle buffer".to_string();
@@ -18,37 +28,61 @@ impl Engine {
             return Err(err);
         }
 
-        // We use this so we can get the exact number of candles we need for warm up
-        if candles.len() < self.max_closed_candles {
-            let err = format!(
-                "cannot seed engine with {} candles, expected at least {}",
-                candles.len(),
-                self.max_closed_candles
-            );
-            tracing::error!(received = candles.len(), expected = self.max_closed_candles, error = %err, "Seed candles failed");
-            return Err(err);
-        }
-
         let candle_key = CandleKey::new(
             candles[FIRST_CANDLE_INDEX].coin.clone(),
             candles[FIRST_CANDLE_INDEX].interval.clone(),
         );
+        let received_len = candles.len();
+        let mut closed_candles = VecDeque::new();
+        let mut live_candle = None;
 
-        // Using a guard to make sure we just have the exact amount of candles we want
-        while candles.len() > self.max_closed_candles {
-            candles.pop_front();
+        while let Some(candle) = candles.pop_front() {
+            if candle.close_time_ms < seed_end_time {
+                closed_candles.push_back(candle);
+            } else if candle.open_time_ms <= seed_end_time && seed_end_time <= candle.close_time_ms
+            {
+                live_candle = Some(candle);
+            }
         }
 
-        let last_open_time = candles.back().unwrap().open_time_ms;
-        let live = candles.back().unwrap().clone();
+        // We use this so we can get the exact number of closed candles we need for warm up
+        if closed_candles.len() < self.max_closed_candles {
+            let err = format!(
+                "cannot seed engine with {} closed candles, expected at least {}",
+                closed_candles.len(),
+                self.max_closed_candles
+            );
+            tracing::error!(
+                received = received_len,
+                closed = closed_candles.len(),
+                expected = self.max_closed_candles,
+                seed_end_time,
+                error = %err,
+                "Seed candles failed"
+            );
+            return Err(err);
+        }
 
-        self.buffers.insert(candle_key.clone(), candles);
+        // Using a guard to make sure we just have the exact amount of candles we want
+        while closed_candles.len() > self.max_closed_candles {
+            closed_candles.pop_front();
+        }
+
+        let live = live_candle
+            .clone()
+            .unwrap_or_else(|| closed_candles.back().unwrap().clone());
+        let last_open_time = live.open_time_ms;
+        let had_forming_candle = live_candle.is_some();
+
+        self.buffers.insert(candle_key.clone(), closed_candles);
         self.set_last_seen(candle_key.clone(), live);
 
         tracing::info!(
             coin = ?candle_key.coin,
             interval = ?candle_key.interval,
+            received = received_len,
             len = self.buffers.get(&candle_key).map(|b| b.len()).unwrap_or(0),
+            had_forming_candle,
             last_seen_open_time = last_open_time,
             "Candle buffer seeded"
         );
@@ -56,16 +90,21 @@ impl Engine {
     }
 
     /* This is a wrapper for seed candles to handle a vector of responsed insated of one only */
-    pub fn seed_from_rest_responses(&mut self, responses: Vec<RestResponse>) -> Result<(), String> {
+    pub fn seed_from_rest_responses(
+        &mut self,
+        responses: Vec<RestResponse>,
+        seed_end_time: u64,
+    ) -> Result<(), String> {
         tracing::info!(
             responses = responses.len(),
+            seed_end_time,
             "Seeding engine from REST responses"
         );
 
         for response in responses {
             match response {
                 RestResponse::CandleSnapshot(candles) => {
-                    self.seed_candles(VecDeque::from(candles))?;
+                    self.seed_candles_at(VecDeque::from(candles), seed_end_time)?;
                 }
             }
         }

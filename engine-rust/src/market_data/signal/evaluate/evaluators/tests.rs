@@ -1,6 +1,5 @@
 use crate::market_data::{
-    signal::evaluate::evaluators::price_evaluator::PriceEvaluator,
-    types::Coins,
+    signal::evaluate::evaluators::price_evaluator::PriceEvaluator, types::Coins,
 };
 
 #[test]

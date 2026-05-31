@@ -2,8 +2,8 @@ use std::time::Duration;
 
 use crate::market_data::{
     constans::{
-        HYPERLIQUID_WS_URL, STREAM_HEALTH_CHECK_INTERVAL_MS, WS_RECONNECT_BACKOFF_MULTIPLIER,
-        WS_RECONNECT_INITIAL_MS, WS_RECONNECT_MAX_MS,
+        HYPERLIQUID_WS_URL, STREAM_HEALTH_CHECK_INTERVAL_MS, WS_MAX_CONSECUTIVE_MESSAGE_ERRORS,
+        WS_RECONNECT_BACKOFF_MULTIPLIER, WS_RECONNECT_INITIAL_MS, WS_RECONNECT_MAX_MS,
     },
     coordinator::MarketUpdate,
     hyperliquid::{
@@ -17,8 +17,11 @@ use futures_util::{SinkExt, StreamExt};
 use tokio::net::TcpStream;
 use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
 
+#[derive(Debug, PartialEq, Eq)]
 enum WsReadAction {
     Continue,
+    MessageOk,
+    MessageError,
     Reconnect,
 }
 
@@ -34,8 +37,7 @@ pub async fn run_hyperliquid_client(
     loop {
         let mut ws_stream = match connect_ws_hl().await {
             Ok(stream) => stream,
-            Err(err) => 
-            {
+            Err(err) => {
                 // retry reconnecting with exponantial backoff
                 tracing::error!(error = %err, "Connection failed, will retry");
                 tokio::time::sleep(backoff).await;
@@ -52,20 +54,23 @@ pub async fn run_hyperliquid_client(
             continue;
         }
 
-        tracing::info!(subscriptions = candle_keys.len(), "All subscription requests sent");
+        tracing::info!(
+            subscriptions = candle_keys.len(),
+            "All subscription requests sent"
+        );
 
         // reset backoff after we are live again
         backoff = Duration::from_millis(WS_RECONNECT_INITIAL_MS);
 
         let connected_at = std::time::Instant::now();
         let mut health = CandleStreamHealth::new(candle_keys, connected_at);
-        let mut health_tick = tokio::time::interval(Duration::from_millis(
-            STREAM_HEALTH_CHECK_INTERVAL_MS,
-        ));
+        let mut health_tick =
+            tokio::time::interval(Duration::from_millis(STREAM_HEALTH_CHECK_INTERVAL_MS));
         health_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
         /* this is a per connection  loop read one websocket until it dies, if fails the outer
-            loop reconnects*/
+        loop reconnects*/
+        let mut consecutive_message_errors = 0;
         loop {
             tokio::select! // runs two tasks at once and handles whichever finishes first
             {
@@ -76,8 +81,13 @@ pub async fn run_hyperliquid_client(
                             break;
                         }
                         Some(msg_result) => {
-                            match read_message(msg_result, runtime, &mut health) {
+                            match apply_message_error_policy(
+                                read_message(msg_result, runtime, &mut health),
+                                &mut consecutive_message_errors,
+                            ) {
                                 WsReadAction::Continue => {}
+                                WsReadAction::MessageOk => {}
+                                WsReadAction::MessageError => {}
                                 // ws error or close — break inner loop and reconnect
                                 WsReadAction::Reconnect => break,
                             }
@@ -147,8 +157,10 @@ fn read_message(
     match result {
         Ok(Message::Text(text)) => {
             let deserialized = serde_json::from_str::<InboundMessage>(&text);
-            let _ = match_response(deserialized, runtime, health);
-            WsReadAction::Continue
+            match match_response(deserialized, runtime, health) {
+                Ok(()) => WsReadAction::MessageOk,
+                Err(_) => WsReadAction::MessageError,
+            }
         }
         // Tokio tungstain handles automatically
         Ok(Message::Ping(_message)) => {
@@ -171,6 +183,39 @@ fn read_message(
             tracing::error!(error = %err, "WebSocket message error");
             WsReadAction::Reconnect
         }
+    }
+}
+
+fn apply_message_error_policy(
+    action: WsReadAction,
+    consecutive_message_errors: &mut u32,
+) -> WsReadAction {
+    match action {
+        WsReadAction::MessageOk => {
+            *consecutive_message_errors = 0;
+            WsReadAction::Continue
+        }
+        WsReadAction::MessageError => {
+            *consecutive_message_errors += 1;
+
+            if *consecutive_message_errors >= WS_MAX_CONSECUTIVE_MESSAGE_ERRORS {
+                tracing::error!(
+                    consecutive_message_errors,
+                    max = WS_MAX_CONSECUTIVE_MESSAGE_ERRORS,
+                    "Too many WebSocket message errors, reconnecting"
+                );
+                return WsReadAction::Reconnect;
+            }
+
+            tracing::warn!(
+                consecutive_message_errors,
+                max = WS_MAX_CONSECUTIVE_MESSAGE_ERRORS,
+                "WebSocket message error counted"
+            );
+            WsReadAction::Continue
+        }
+        WsReadAction::Continue => WsReadAction::Continue,
+        WsReadAction::Reconnect => WsReadAction::Reconnect,
     }
 }
 
@@ -203,5 +248,55 @@ fn match_response(
             tracing::error!(error = %e, "Could not parse inbound message");
             Err(e.into())
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Instant;
+
+    use crate::market_data::{
+        config::MarketDataConfig,
+        hyperliquid::{
+            hl_client::{apply_message_error_policy, read_message, WsReadAction},
+            stream_health::CandleStreamHealth,
+        },
+        runtime::MarketDataRuntime,
+        types::{CandleKey, Coins, Interval},
+    };
+    use tokio_tungstenite::tungstenite::Message;
+
+    #[test]
+    fn message_error_counter_reconnects_at_max() {
+        let mut count = crate::market_data::constans::WS_MAX_CONSECUTIVE_MESSAGE_ERRORS - 1;
+
+        let action = apply_message_error_policy(WsReadAction::MessageError, &mut count);
+
+        assert_eq!(action, WsReadAction::Reconnect);
+    }
+
+    #[test]
+    fn message_ok_resets_error_counter() {
+        let mut count = 3;
+
+        let action = apply_message_error_policy(WsReadAction::MessageOk, &mut count);
+
+        assert_eq!(action, WsReadAction::Continue);
+        assert_eq!(count, 0);
+    }
+
+    #[test]
+    fn parse_error_returns_message_error() {
+        let mut runtime = MarketDataRuntime::new(MarketDataConfig::default());
+        let keys = [CandleKey::new(Coins::HYPE, Interval::M5)];
+        let mut health = CandleStreamHealth::new(&keys, Instant::now());
+
+        let action = read_message(
+            Ok(Message::Text("{not valid json".to_string())),
+            &mut runtime,
+            &mut health,
+        );
+
+        assert_eq!(action, WsReadAction::MessageError);
     }
 }

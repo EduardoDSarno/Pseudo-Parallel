@@ -1,14 +1,11 @@
 use crate::market_data::{
-    coordinator::{
-        candle_ingest::IngestedCandleSnapshot, indicators, signal_input::SignalInput,
-    },
+    constans::PRICE_ALERT_INTERVAL_MS,
+    coordinator::{candle_ingest::IngestedCandleSnapshot, indicators, signal_input::SignalInput},
     runtime::MarketDataRuntime,
     signal::event::Alert,
 };
 
-
-impl MarketDataRuntime 
-{
+impl MarketDataRuntime {
     /* Will run signals based on the input type received */
     pub(crate) fn run_signals(&mut self, input: SignalInput) -> Vec<Alert> {
         match input {
@@ -17,13 +14,20 @@ impl MarketDataRuntime
     }
 
     /* This function will run signals for candle by checking alerts for price changed and evaluate indicator*/
-    fn run_signals_for_candle(
-        &mut self,
-        snapshot: IngestedCandleSnapshot,
-    ) -> Vec<Alert> {
+    fn run_signals_for_candle(&mut self, snapshot: IngestedCandleSnapshot) -> Vec<Alert> {
         // receive a vector of alerts of price changes
         let coin = snapshot.candle_key.coin;
-        let price_alerts = self.price_alerts_if_coin_price_changed(coin, snapshot.close_price);
+        // just use one stream for candles pri
+        let price_alerts = if snapshot.candle_key.interval.to_ms() == PRICE_ALERT_INTERVAL_MS {
+            self.price_alerts_if_coin_price_changed(coin, snapshot.close_price)
+        } else {
+            tracing::trace!(
+                coin = ?coin,
+                interval = ?snapshot.candle_key.interval,
+                "orchestrator: skipping price signals for non-price interval"
+            );
+            Vec::new()
+        };
         tracing::debug!(
             coin = ?coin,
             price_alert_count = price_alerts.len(),
@@ -42,8 +46,8 @@ impl MarketDataRuntime
                 "orchestrator: indicator signal pass complete"
             );
             alerts.extend(indicator_alerts);
-        } 
-        else  // tracking causes of not evaluting indicators 
+        } else
+        // tracking causes of not evaluting indicators
         {
             let closed = self.engine.closed_buffer(&snapshot.candle_key);
             let has_closed_buffer = closed.is_some();
