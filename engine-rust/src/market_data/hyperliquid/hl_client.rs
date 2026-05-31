@@ -1,41 +1,125 @@
+use std::time::Duration;
+
 use crate::market_data::{
-    constans::HYPERLIQUID_WS_URL,
+    constans::{
+        HYPERLIQUID_WS_URL, STREAM_HEALTH_CHECK_INTERVAL_MS, WS_RECONNECT_BACKOFF_MULTIPLIER,
+        WS_RECONNECT_INITIAL_MS, WS_RECONNECT_MAX_MS,
+    },
     coordinator::MarketUpdate,
-    hyperliquid::protocols::{inbound::InboundMessage, subscribe::SubscribeToChannelReq},
+    hyperliquid::{
+        protocols::{inbound::InboundMessage, subscribe::subscribe_candle},
+        stream_health::CandleStreamHealth,
+    },
     runtime::MarketDataRuntime,
-    types::Candle,
+    types::{Candle, CandleKey},
 };
 use futures_util::{SinkExt, StreamExt};
 use tokio::net::TcpStream;
 use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
 
+enum WsReadAction {
+    Continue,
+    Reconnect,
+}
+
+/* Outer loop: reconnect forever, resubscribe all candle keys each session */
 pub async fn run_hyperliquid_client(
-    subs: Vec<SubscribeToChannelReq>,
+    candle_keys: &[CandleKey],
     runtime: &mut MarketDataRuntime,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    tracing::info!(subscriptions = subs.len(), "Starting Hyperliquid client");
+    tracing::info!(streams = candle_keys.len(), "Starting Hyperliquid client");
 
-    // connect with hype Ws
-    let mut ws_stream = connect_ws_hl().await?;
+    let mut backoff = Duration::from_millis(WS_RECONNECT_INITIAL_MS);
 
-    // Loop through messages, serialize and send it
-    for sub in &subs {
-        let msg = serde_json::to_string(sub)?;
+    loop {
+        let mut ws_stream = match connect_ws_hl().await {
+            Ok(stream) => stream,
+            Err(err) => 
+            {
+                // retry reconnecting with exponantial backoff
+                tracing::error!(error = %err, "Connection failed, will retry");
+                tokio::time::sleep(backoff).await;
+                backoff = next_backoff(backoff);
+                continue;
+            }
+        };
+
+        // sending subscription with keys to the
+        if let Err(err) = send_subscriptions(&mut ws_stream, candle_keys).await {
+            tracing::error!(error = %err, "Subscribe failed, will retry");
+            tokio::time::sleep(backoff).await;
+            backoff = next_backoff(backoff);
+            continue;
+        }
+
+        tracing::info!(subscriptions = candle_keys.len(), "All subscription requests sent");
+
+        // reset backoff after we are live again
+        backoff = Duration::from_millis(WS_RECONNECT_INITIAL_MS);
+
+        let connected_at = std::time::Instant::now();
+        let mut health = CandleStreamHealth::new(candle_keys, connected_at);
+        let mut health_tick = tokio::time::interval(Duration::from_millis(
+            STREAM_HEALTH_CHECK_INTERVAL_MS,
+        ));
+        health_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
+        /* this is a per connection  loop read one websocket until it dies, if fails the outer
+            loop reconnects*/
+        loop {
+            tokio::select! // runs two tasks at once and handles whichever finishes first
+            {
+                result = ws_stream.next() => {
+                    match result {
+                        None => {
+                            tracing::info!("WebSocket stream ended");
+                            break;
+                        }
+                        Some(msg_result) => {
+                            match read_message(msg_result, runtime, &mut health) {
+                                WsReadAction::Continue => {}
+                                // ws error or close — break inner loop and reconnect
+                                WsReadAction::Reconnect => break,
+                            }
+                        }
+                    }
+                }
+                _ = health_tick.tick() => {
+                    health.check_stale();
+                }
+            }
+        }
+
+        tracing::info!("Hyperliquid session ended, reconnecting after backoff");
+        // outer loop — session ended, backoff then connect again
+        tokio::time::sleep(backoff).await;
+        backoff = next_backoff(backoff);
+    }
+}
+
+/* Receives the keys and stream and send subscriptions to it */
+async fn send_subscriptions(
+    ws_stream: &mut WebSocketStream<MaybeTlsStream<TcpStream>>,
+    candle_keys: &[CandleKey],
+) -> Result<(), Box<dyn std::error::Error>> {
+    for key in candle_keys {
+        let sub = subscribe_candle(key.coin, key.interval.clone());
+        let msg = serde_json::to_string(&sub)?;
         tracing::debug!(subscription = ?sub, "Sending subscription request");
         ws_stream.send(Message::Text(msg)).await?;
     }
-
-    tracing::info!(subscriptions = subs.len(), "All subscription requests sent");
-
-    while let Some(result) = ws_stream.next().await {
-        // It will return false when closed
-        if !read_message(result, runtime) {
-            break;
-        }
-    }
-
-    tracing::warn!("Hyperliquid client stopped reading messages");
     Ok(())
+}
+
+/*implements exponential backoff with a ceiling for how long the client waits before trying again */
+fn next_backoff(current: Duration) -> Duration {
+    let doubled = current.saturating_mul(WS_RECONNECT_BACKOFF_MULTIPLIER);
+    let max = Duration::from_millis(WS_RECONNECT_MAX_MS);
+    if doubled > max {
+        max
+    } else {
+        doubled
+    }
 }
 
 /* This function it returns a websocketsream conneciton with hyperlquid */
@@ -58,33 +142,34 @@ with one of our message inbounds otherwise it will match with different types of
 fn read_message(
     result: Result<Message, tokio_tungstenite::tungstenite::Error>,
     runtime: &mut MarketDataRuntime,
-) -> bool {
+    health: &mut CandleStreamHealth,
+) -> WsReadAction {
     match result {
         Ok(Message::Text(text)) => {
             let deserialized = serde_json::from_str::<InboundMessage>(&text);
-            let _ = match_response(deserialized, runtime);
-            true
+            let _ = match_response(deserialized, runtime, health);
+            WsReadAction::Continue
         }
         // Tokio tungstain handles automatically
         Ok(Message::Ping(_message)) => {
             tracing::trace!("Received ping");
-            true
+            WsReadAction::Continue
         }
         Ok(Message::Pong(_message)) => {
             tracing::trace!("Received pong");
-            true
+            WsReadAction::Continue
         }
         Ok(Message::Close(close_frame)) => {
             tracing::warn!(frame = ?close_frame, "WebSocket closed");
-            false
+            WsReadAction::Reconnect
         }
         Ok(message) => {
             tracing::warn!(message = ?message, "Unexpected WS message type");
-            true
+            WsReadAction::Continue
         }
         Err(err) => {
             tracing::error!(error = %err, "WebSocket message error");
-            true
+            WsReadAction::Reconnect
         }
     }
 }
@@ -93,6 +178,7 @@ fn read_message(
 fn match_response(
     message_response: Result<InboundMessage, serde_json::Error>,
     runtime: &mut MarketDataRuntime,
+    health: &mut CandleStreamHealth,
 ) -> Result<(), Box<dyn std::error::Error>> {
     match message_response {
         Ok(InboundMessage::SubscriptionResponse(response)) => {
@@ -104,6 +190,8 @@ fn match_response(
             let candle = Candle::try_from(candle_hl).inspect_err(
                 |err| tracing::error!(error = %err, "Could not convert inbound candle"),
             )?;
+            // record before process so health sees transport even if ingest fails
+            health.record_candle(&candle);
             runtime.process(MarketUpdate::Candle(candle));
             Ok(())
         }

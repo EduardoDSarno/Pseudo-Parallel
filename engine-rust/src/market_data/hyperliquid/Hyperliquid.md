@@ -18,6 +18,7 @@ The current Hyperliquid module is organized like this:
 ```text
 hyperliquid/
     hl_client.rs
+    stream_health.rs
     protocols/
         subscribe.rs
         inbound.rs
@@ -25,8 +26,12 @@ hyperliquid/
             candle.rs
 ```
 
-`hl_client.rs` is responsible for the WebSocket connection itself. It connects to Hyperliquid, sends the subscription
-requests, keeps listening to the stream, and sends the valid market data forward to the rest of the program.
+`hl_client.rs` is responsible for the WebSocket connection itself. It takes `&[CandleKey]` from `main`, connects to
+Hyperliquid, sends subscription requests (rebuilt on every reconnect), keeps listening in a reconnect loop with backoff,
+and sends valid market data forward to the rest of the program.
+
+`stream_health.rs` tracks the last candle per subscribed key and warns when a stream goes quiet for longer than about
+twice its interval.
 
 `protocols/subscribe.rs` is responsible for the outbound messages, meaning the messages that we send to Hyperliquid.
 This is where we define the subscribe/unsubscribe method and the different subscription types, such as candle, l2 book,
@@ -40,32 +45,45 @@ candle structure. It is just the shape of the data exactly as Hyperliquid sends 
 
 ## WebSocket Flow
 
-The main flow starts from the caller, where we create the subscriptions we want and pass them into `run_hyperliquid_client`.
+The main flow starts from the caller, where we pass the same `candle_keys` used for REST seed into
+`run_hyperliquid_client`.
 
 The Hyperliquid client then follows this order:
 
 1. Connect to the Hyperliquid WebSocket URL.
-2. Serialize each subscription into JSON.
+2. Serialize each subscription into JSON (from each `CandleKey`).
 3. Send each subscription through the WebSocket.
-4. Keep listening for incoming WebSocket messages.
-5. If the message is text, try to deserialize it into `InboundMessage`.
-6. Match the inbound message type.
-7. If the message is a candle, convert it from `CandleHL` into our internal `Candle`.
-8. Send the internal `Candle` into the event/engine flow.
+4. Keep listening for incoming WebSocket messages and run a periodic stream-health check.
+5. On disconnect or read error, sleep with backoff and loop back to step 1 (the process does not exit).
+6. If the message is text, try to deserialize it into `InboundMessage`.
+7. Match the inbound message type.
+8. If the message is a candle, convert it from `CandleHL` into our internal `Candle`.
+9. Send the internal `Candle` into the event/engine flow.
 
 So the simplified flow looks like this:
 
 ```text
-main.rs
+main.rs (candle_keys)
     -> run_hyperliquid_client
         -> connect_ws_hl
         -> send subscriptions
-        -> read_message
+        -> read_message + health tick
         -> match_response
         -> CandleHL
         -> Candle
         -> process(MarketUpdate::Candle)
+        -> (on drop) reconnect loop
 ```
+
+## Reconnect and stream health
+
+**Connection drop** — we use one WebSocket for all candle streams. If it drops, `hl_client` reconnects with backoff and
+sends every subscription again. In-memory engine state is kept; we do not REST re-seed on reconnect in v1.
+
+**Per-stream silence** — the connection can stay up while one interval stops sending candles. `stream_health` warns once
+per key if there is no candle for about twice that interval’s length in milliseconds.
+
+**Not in v1** — resubscribing only one stale interval while the socket stays open; automatic REST re-seed after reconnect.
 
 ## Outbound Messages
 
