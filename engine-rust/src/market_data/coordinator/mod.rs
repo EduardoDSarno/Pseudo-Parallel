@@ -8,3 +8,6 @@ mod signal_input;
 mod signals;
 
 pub use market_update::MarketUpdate;
+
+#[cfg(test)]
+mod candle_ingest_tests;

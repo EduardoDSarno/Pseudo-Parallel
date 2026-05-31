@@ -2,7 +2,7 @@ use std::error::Error;
 
 use crate::market_data::{
     config::MarketDataConfig,
-    hyperliquid::{hl_client::run_hyperliquid_client, protocols::subscribe::subscribe_candle},
+    hyperliquid::hl_client::run_hyperliquid_client,
     runtime::MarketDataRuntime,
     startup::seed_engine_from_rest,
     types::{CandleKey, Coins, Interval},
@@ -34,16 +34,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     seed_engine_from_rest(&mut runtime, &candle_keys).await?;
     tracing::info!("REST seed finished");
 
-    // Create the WebSocket subscriptions from the same keys we already seeded.
-    let subs = candle_keys
-        .into_iter()
-        .map(|key| subscribe_candle(key.coin, key.interval))
-        .collect();
-    tracing::info!("WebSocket subscriptions created");
-
     tracing::info!("Starting live market data stream");
-    run_hyperliquid_client(subs, &mut runtime).await?;
-    tracing::warn!("Live market data stream stopped");
+    // same keys as REST seed — client rebuilds subs on each connect
+    run_hyperliquid_client(&candle_keys, &mut runtime).await?;
 
     Ok(())
 }

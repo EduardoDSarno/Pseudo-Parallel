@@ -5,7 +5,7 @@ use crate::market_data::{
     engine::Engine,
     hyperliquid::protocols::rest::RestResponse,
     signal::{evaluate::event_evaluator::EventEvaluator, price::PriceAlertService},
-    types::Coins,
+    types::{CandleKey, Coins},
 };
 
 /* This file is the composition root for the market data engine.
@@ -44,6 +44,10 @@ impl MarketDataRuntime {
     /* Wrapper so startup can seed the engine without touching engine directly */
     pub fn seed_from_rest_responses(&mut self, responses: Vec<RestResponse>) -> Result<(), String> {
         self.engine.seed_from_rest_responses(responses)
+    }
+
+    pub fn verify_seeded_keys(&self, keys: &[CandleKey]) -> Result<(), String> {
+        self.engine.verify_seeded_keys(keys)
     }
 
     /* Read-only access for price evaluation during process */

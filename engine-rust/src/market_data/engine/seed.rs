@@ -39,9 +39,19 @@ impl Engine {
             candles.pop_front();
         }
 
-        // overwrites or creates our data for candles for the respective candle_key
-        tracing::info!(coin = ?candle_key.coin, interval = ?candle_key.interval, len = candles.len(), "Candle buffer seeded");
-        self.buffers.insert(candle_key, candles);
+        let last_open_time = candles.back().unwrap().open_time_ms;
+        let live = candles.back().unwrap().clone();
+
+        self.buffers.insert(candle_key.clone(), candles);
+        self.set_last_seen(candle_key.clone(), live);
+
+        tracing::info!(
+            coin = ?candle_key.coin,
+            interval = ?candle_key.interval,
+            len = self.buffers.get(&candle_key).map(|b| b.len()).unwrap_or(0),
+            last_seen_open_time = last_open_time,
+            "Candle buffer seeded"
+        );
         Ok(())
     }
 
@@ -58,6 +68,34 @@ impl Engine {
                     self.seed_candles(VecDeque::from(candles))?;
                 }
             }
+        }
+
+        Ok(())
+    }
+
+    pub fn verify_seeded_keys(&self, keys: &[CandleKey]) -> Result<(), String> {
+        for key in keys {
+            let closed_len = self.closed_buffer(key).map(|buf| buf.len()).unwrap_or(0);
+            let has_last_seen = self.last_seen(key).is_some();
+
+            if closed_len != self.max_closed_candles || !has_last_seen {
+                let err = format!(
+                    "seed verification failed for {:?}: closed_len={} expected={}, has_last_seen={}",
+                    key, closed_len, self.max_closed_candles, has_last_seen
+                );
+                tracing::error!(error = %err, "Seed verification failed");
+                return Err(err);
+            }
+
+            let last_seen_open_time = self.last_seen(key).unwrap().open_time_ms;
+            tracing::info!(
+                coin = ?key.coin,
+                interval = ?key.interval,
+                closed_len,
+                max_closed_candles = self.max_closed_candles,
+                last_seen_open_time,
+                "Seed verified for stream"
+            );
         }
 
         Ok(())

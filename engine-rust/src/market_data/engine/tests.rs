@@ -80,6 +80,28 @@ fn seed_candles_trims_to_configured_size() {
 }
 
 #[test]
+fn seed_candles_sets_last_seen_from_latest_candle() {
+    let mut engine = Engine::new(TEST_MAX_CLOSED_CANDLES);
+    let candles = (0..TEST_MAX_CLOSED_CANDLES)
+        .map(|i| {
+            candle(
+                i as u64 * M5_INTERVAL_MS,
+                TEST_BASE_HIGH,
+                TEST_BASE_LOW,
+                TEST_BASE_CLOSE,
+            )
+        })
+        .collect();
+
+    engine.seed_candles(candles).unwrap();
+
+    let buffer = engine.closed_buffer(&test_key()).unwrap();
+    let last_seen = engine.last_seen(&test_key()).unwrap();
+
+    assert_eq!(last_seen.open_time_ms, buffer.back().unwrap().open_time_ms);
+}
+
+#[test]
 fn last_seen_can_be_updated() {
     let mut engine = Engine::new(TEST_MAX_CLOSED_CANDLES);
     let live = candle(TEST_LIVE_OPEN_TIME, 102.5, TEST_BASE_CLOSE, 102.5);

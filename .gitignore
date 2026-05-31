@@ -20,3 +20,6 @@ main
 
 # OS
 .DS_Store
+
+#cursor rules
+.cursor/

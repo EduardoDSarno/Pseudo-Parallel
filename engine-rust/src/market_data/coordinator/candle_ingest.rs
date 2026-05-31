@@ -17,13 +17,21 @@ pub fn apply_candle(engine: &mut Engine, candle: Candle) -> IngestedCandleSnapsh
     if let Some(last) = engine.last_seen(&candle_key) {
         if last.open_time_ms != candle.open_time_ms {
             let closed = last.clone();
-            tracing::debug!(
-                coin = ?closed.coin,
-                interval = ?closed.interval,
-                open_time = closed.open_time_ms,
-                "Candle closed and added to buffer"
-            );
-            engine.push_closed_candle(candle_key.clone(), closed);
+            let already_in_buffer = engine
+                .closed_buffer(&candle_key)
+                .and_then(|buf| buf.back())
+                .map(|tail| tail.open_time_ms == closed.open_time_ms)
+                .unwrap_or(false);
+
+            if !already_in_buffer {
+                tracing::debug!(
+                    coin = ?closed.coin,
+                    interval = ?closed.interval,
+                    open_time = closed.open_time_ms,
+                    "Candle closed and added to buffer"
+                );
+                engine.push_closed_candle(candle_key.clone(), closed);
+            }
         }
     }
 
