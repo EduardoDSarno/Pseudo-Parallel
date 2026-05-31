@@ -64,7 +64,7 @@ main.rs
         -> match_response
         -> CandleHL
         -> Candle
-        -> handle_candle_event
+        -> process(MarketUpdate::Candle)
 ```
 
 ## Outbound Messages

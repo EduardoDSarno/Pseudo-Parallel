@@ -70,6 +70,15 @@ impl CoinPriceBook
         map.get(&price_key).cloned()
     }
 
+    /* This function will delete the whole level of alerts in pricebooks  */
+    pub fn delete_level(
+        &mut self,
+        price_key: PriceKey,
+        direction: ManualPriceDirection,
+    ) -> Option<PriceLevelEntry> {
+        self.get_map_mut(direction).remove(&price_key)
+    }
+
     pub fn get_level(
         &self,
         price_key: PriceKey,

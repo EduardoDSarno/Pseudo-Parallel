@@ -48,6 +48,25 @@ impl PriceAlertService {
         ))
     }
 
+    /* This function will delete the whole level of alerts in pricebooks  */
+    pub fn disarm_level_on_trigger(&mut self, key: AlertKey) -> Option<PriceLevelEntry> {
+        let removed = self
+            .book
+            .delete_level(key.coin, key.price_key, key.direction);
+
+        if removed.is_some() {
+            tracing::debug!(?key, coin = ?key.coin, "price level disarmed after trigger");
+        }
+
+        removed
+    }
+
+    pub fn disarm_levels(&mut self, keys: impl IntoIterator<Item = AlertKey>) {
+        for key in keys {
+            self.disarm_level_on_trigger(key);
+        }
+    }
+
     pub fn get(&self, key: &AlertKey) -> Option<ManualPriceAlert> {
         self.book
             .get(key.coin, key.price_key, key.direction)

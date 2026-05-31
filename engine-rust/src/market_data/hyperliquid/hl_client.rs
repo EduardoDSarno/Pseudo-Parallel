@@ -1,5 +1,6 @@
 use crate::market_data::{
     constans::HYPERLIQUID_WS_URL,
+    coordinator::MarketUpdate,
     hyperliquid::protocols::{inbound::InboundMessage, subscribe::SubscribeToChannelReq},
     runtime::MarketDataRuntime,
     types::Candle,
@@ -103,7 +104,7 @@ fn match_response(
             let candle = Candle::try_from(candle_hl).inspect_err(
                 |err| tracing::error!(error = %err, "Could not convert inbound candle"),
             )?;
-            runtime.handle_candle(candle);
+            runtime.process(MarketUpdate::Candle(candle));
             Ok(())
         }
         Ok(InboundMessage::Error(msg)) => {

@@ -1,5 +1,6 @@
 use crate::market_data::{
-    signal::price::{PriceAlertService, ManualPriceAlert, ManualPriceDirection},
+    signal::price::{PriceAlertService, ManualPriceDirection},
+    signal::price::alert::ManualPriceAlert,
     types::Coins,
 };
 
@@ -137,4 +138,55 @@ fn get_returns_subscribed_alert() {
 
     assert_eq!(alert.trigger_price, TEST_TRIGGER_PRICE);
     assert_eq!(alert.direction, ManualPriceDirection::Above);
+}
+
+#[test]
+fn disarm_level_on_trigger_removes_entire_level_with_multiple_subscribers() {
+    let mut service = PriceAlertService::new();
+    let key = service
+        .subscribe(alert(ManualPriceDirection::Above))
+        .unwrap();
+    service
+        .subscribe(alert(ManualPriceDirection::Above))
+        .unwrap();
+
+    assert_eq!(service.subscriber_count(&key), Some(2));
+
+    let removed = service.disarm_level_on_trigger(key).unwrap();
+
+    assert_eq!(removed.trigger_price, TEST_TRIGGER_PRICE);
+    assert!(!service.contains(&key));
+    assert_eq!(service.subscriber_count(&key), None);
+}
+
+#[test]
+fn disarm_levels_removes_multiple_keys() {
+    let mut service = PriceAlertService::new();
+    let above_key = service
+        .subscribe(alert(ManualPriceDirection::Above))
+        .unwrap();
+    let below_key = service
+        .subscribe(alert(ManualPriceDirection::Below))
+        .unwrap();
+
+    service.disarm_levels([above_key, below_key]);
+
+    assert!(!service.contains(&above_key));
+    assert!(!service.contains(&below_key));
+}
+
+#[test]
+fn disarm_level_on_trigger_prevents_repeat_cross() {
+    let mut service = PriceAlertService::new();
+    let key = service
+        .subscribe(alert(ManualPriceDirection::Above))
+        .unwrap();
+
+    let first = service.crossed_above(Coins::HYPE, 40.0, 43.0);
+    assert_eq!(first.len(), 1);
+
+    service.disarm_level_on_trigger(key).unwrap();
+
+    let second = service.crossed_above(Coins::HYPE, 43.0, 45.0);
+    assert!(second.is_empty());
 }

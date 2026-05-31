@@ -43,6 +43,18 @@ impl PriceBook {
             .and_then(|book| book.remove_level(price_key, direction))
     }
 
+    /* This function will delete the whole level of alerts in pricebooks specific direction */
+    pub fn delete_level(
+        &mut self,
+        coin: Coins,
+        price_key: PriceKey,
+        direction: ManualPriceDirection,
+    ) -> Option<PriceLevelEntry> {
+        self.by_coin
+            .get_mut(&coin)
+            .and_then(|book| book.delete_level(price_key, direction))
+    }
+
     pub fn get(
         &self,
         coin: Coins,

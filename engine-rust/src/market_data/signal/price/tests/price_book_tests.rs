@@ -70,6 +70,35 @@ fn remove_decrements_before_removing_shared_level() {
 }
 
 #[test]
+fn delete_level_removes_entire_slot_regardless_of_subscriber_count() {
+    let mut book = PriceBook::new();
+    let key = price_key(TEST_TRIGGER_PRICE);
+
+    book.insert(
+        Coins::HYPE,
+        key,
+        ManualPriceDirection::Above,
+        entry(TEST_TRIGGER_PRICE),
+    );
+    book.insert(
+        Coins::HYPE,
+        key,
+        ManualPriceDirection::Above,
+        entry(TEST_TRIGGER_PRICE),
+    );
+
+    assert_eq!(book.subscriber_count(Coins::HYPE, key, ManualPriceDirection::Above), Some(2));
+
+    let removed = book
+        .delete_level(Coins::HYPE, key, ManualPriceDirection::Above)
+        .unwrap();
+
+    assert_eq!(removed.trigger_price, TEST_TRIGGER_PRICE);
+    assert!(!book.contains(Coins::HYPE, key, ManualPriceDirection::Above));
+    assert_eq!(book.subscriber_count(Coins::HYPE, key, ManualPriceDirection::Above), None);
+}
+
+#[test]
 fn same_price_with_different_direction_is_different_level() {
     let mut book = PriceBook::new();
     let key = price_key(TEST_TRIGGER_PRICE);
