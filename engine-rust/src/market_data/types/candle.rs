@@ -1,5 +1,5 @@
 use crate::market_data::{
-    hyperliquid::protocols::data_models::candle::CandleHL,
+    clients::hyperliquid::protocols::data_models::candle::CandleHL,
     types::{Coins, Interval},
 };
 

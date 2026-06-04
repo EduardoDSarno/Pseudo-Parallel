@@ -3,8 +3,8 @@ use std::error::Error;
 use reqwest::Client;
 
 use crate::market_data::{
+    clients::hyperliquid::protocols::rest::{parse_snapshot_to_candles, RestRequest, RestResponse},
     constans::HYPERLIQUID_REST_URL,
-    hyperliquid::protocols::rest::{parse_snapshot_to_candles, RestRequest, RestResponse},
 };
 
 /* This function has the job of creating a new client, calling the HYPERLIQUID_REST_URL endpoint

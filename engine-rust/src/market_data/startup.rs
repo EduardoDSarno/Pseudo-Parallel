@@ -4,19 +4,19 @@ use std::{
 };
 
 use crate::market_data::{
+    clients::hyperliquid::{
+        hl_rest_client::send_multiple_info_requests,
+        protocols::rest::{CandleSnapshotRequest, RestRequest},
+    },
     constans::{
         REST_SEED_MAX_ATTEMPTS, REST_SEED_RETRY_INITIAL_MS, WS_RECONNECT_BACKOFF_MULTIPLIER,
         WS_RECONNECT_MAX_MS,
-    },
-    hyperliquid::{
-        hl_rest_client::send_multiple_info_requests,
-        protocols::rest::{CandleSnapshotRequest, RestRequest},
     },
     runtime::MarketDataRuntime,
     types::CandleKey,
 };
 
-/* Seeds the engine from Hyperliquid REST before the live WebSocket starts.
+/* Seeds the candle store from Hyperliquid REST before the live WebSocket starts.
 We need a full closed-candle buffer per stream so indicators (ATR) can run on the first
 live tick — not a cold start. Retries handle transient API/network failures; if all
 attempts fail we abort startup (main never opens WS) instead of running with bad data. */
@@ -73,7 +73,7 @@ pub async fn seed_engine_from_rest(
     Err(err)
 }
 
-/* One full seed try: fetch all streams, load into engine, then audit every key.
+/* One full seed try: fetch all streams, load into candle store, then audit every key.
 Fails if REST errors, buffer too short, or verify finds missing buffer / last_seen. */
 async fn try_seed_candle_once(
     runtime: &mut MarketDataRuntime,
@@ -94,7 +94,7 @@ async fn try_seed_candle_once(
         .verify_seeded_keys(candle_keys)
         .map_err(|err| std::io::Error::new(std::io::ErrorKind::InvalidData, err))?;
 
-    tracing::info!("REST seed loaded into engine");
+    tracing::info!("REST seed loaded into candle store");
     Ok(())
 }
 

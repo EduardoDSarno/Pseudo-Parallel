@@ -183,7 +183,7 @@ The Hyperliquid module should not care too much about:
 - How indicators are calculated.
 - How breakout signals are evaluated.
 
-Right now `hl_client.rs` still receives a mutable `Engine`, so the client is a little coupled to the engine. That is okay
+Right now `hl_client.rs` still receives a mutable `CandleStore`, so the client is a little coupled to the engine. That is okay
 for now because the project is still small, but later if we add another market data source, we may want the client to return
 events instead of calling the engine directly.
 
@@ -204,4 +204,4 @@ For now, candles are the only complete flow from Hyperliquid all the way into th
 
 ## UPDATES
 Additon on may 14, 2026
-We Have added the the hl_rest_client file which is resposible for fetching the data for the Engine from the 14 previous candles so we don't have to use the warmup anymore
+We Have added the the hl_rest_client file which is resposible for fetching the data for the CandleStore from the 14 previous candles so we don't have to use the warmup anymore

@@ -1,8 +1,8 @@
 use std::time::Instant;
 
 use crate::market_data::{
+    clients::hyperliquid::stream_health::{is_stream_stale, CandleStreamHealth},
     constans::{M5_INTERVAL_MS, STREAM_STALE_MULTIPLIER},
-    hyperliquid::stream_health::{is_stream_stale, CandleStreamHealth},
     types::{Candle, CandleKey, Coins, Interval},
 };
 

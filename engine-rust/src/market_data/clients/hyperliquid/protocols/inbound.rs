@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::market_data::hyperliquid::protocols::{
+use crate::market_data::clients::hyperliquid::protocols::{
     data_models::candle::CandleHL,
     subscribe::{Method, SubscriptionData},
 };

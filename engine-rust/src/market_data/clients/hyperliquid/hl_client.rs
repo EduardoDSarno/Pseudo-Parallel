@@ -1,15 +1,15 @@
 use std::time::Duration;
 
 use crate::market_data::{
+    clients::hyperliquid::{
+        protocols::{inbound::InboundMessage, subscribe::subscribe_candle},
+        stream_health::CandleStreamHealth,
+    },
     constans::{
         HYPERLIQUID_WS_URL, STREAM_HEALTH_CHECK_INTERVAL_MS, WS_MAX_CONSECUTIVE_MESSAGE_ERRORS,
         WS_RECONNECT_BACKOFF_MULTIPLIER, WS_RECONNECT_INITIAL_MS, WS_RECONNECT_MAX_MS,
     },
     coordinator::MarketUpdate,
-    hyperliquid::{
-        protocols::{inbound::InboundMessage, subscribe::subscribe_candle},
-        stream_health::CandleStreamHealth,
-    },
     runtime::MarketDataRuntime,
     types::{Candle, CandleKey},
 };
@@ -256,11 +256,11 @@ mod tests {
     use std::time::Instant;
 
     use crate::market_data::{
-        config::MarketDataConfig,
-        hyperliquid::{
+        clients::hyperliquid::{
             hl_client::{apply_message_error_policy, read_message, WsReadAction},
             stream_health::CandleStreamHealth,
         },
+        config::MarketDataConfig,
         runtime::MarketDataRuntime,
         types::{CandleKey, Coins, Interval},
     };
