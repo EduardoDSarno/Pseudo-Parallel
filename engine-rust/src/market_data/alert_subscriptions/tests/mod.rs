@@ -1,2 +1,2 @@
+mod apply_tests;
 mod incoming_tests;
-mod price_resolve_tests;

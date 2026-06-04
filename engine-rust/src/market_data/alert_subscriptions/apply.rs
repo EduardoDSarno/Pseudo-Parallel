@@ -1,11 +1,12 @@
 use std::error::Error;
 
 use crate::market_data::{
-    alert_subscriptions::{
-        command::{SubscriptionCommand, SubscriptionManager, SubscriptionType},
-        price_resolve::build_manual_price_alert,
+    alert_subscriptions::command::{
+        PriceSubscriptionSpec, SubscriptionCommand, SubscriptionManager, SubscriptionType,
     },
     runtime::MarketDataRuntime,
+    signal::price::{alert::ManualPriceAlert, build_manual_price_alert},
+    types::{CandleKey, Coins, Interval},
 };
 
 pub fn apply_subscription(
@@ -15,12 +16,7 @@ pub fn apply_subscription(
     match sub.command {
         SubscriptionCommand::Subscribe => match &sub.sub_type {
             SubscriptionType::Price(spec) => {
-                let alert = build_manual_price_alert(
-                    runtime,
-                    spec.coin,
-                    spec.trigger_price,
-                    spec.direction,
-                )?;
+                let alert = resolve_price_alert(runtime, spec)?;
                 runtime.alert_service_mut().subscribe(alert)?;
             }
             SubscriptionType::Indicator(ind) => {
@@ -31,13 +27,7 @@ pub fn apply_subscription(
         },
         SubscriptionCommand::Unsubscribe => match &sub.sub_type {
             SubscriptionType::Price(spec) => {
-                let alert = build_manual_price_alert(
-                    runtime,
-                    spec.coin,
-                    spec.trigger_price,
-                    spec.direction,
-                )
-                .map_err(|err| {
+                let alert = resolve_price_alert(runtime, spec).map_err(|err| {
                     tracing::error!(
                         error = %err,
                         ?spec,
@@ -78,4 +68,35 @@ pub fn apply_subscription(
         },
     }
     Ok(())
+}
+
+fn resolve_price_alert(
+    runtime: &MarketDataRuntime,
+    spec: &PriceSubscriptionSpec,
+) -> Result<ManualPriceAlert, Box<dyn Error>> {
+    let reference_price = if spec.direction.is_none() {
+        reference_price_for_coin(runtime, spec.coin)
+    } else {
+        None
+    };
+    build_manual_price_alert(
+        spec.coin,
+        spec.trigger_price,
+        spec.direction,
+        reference_price,
+    )
+}
+
+/* Same source as price crossing: last M5 tick price, else latest M5 candle close. */
+fn reference_price_for_coin(runtime: &MarketDataRuntime, coin: Coins) -> Option<f64> {
+    if let Some(price) = runtime.last_market_price(coin) {
+        return Some(price);
+    }
+    let key = CandleKey::new(coin, Interval::M5);
+    let view = runtime.candle_store.market_view(&key)?;
+    view
+        .closed_candles
+        .back()
+        .map(|c| c.close_price)
+        .or(Some(view.live_candle.close_price))
 }
