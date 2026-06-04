@@ -55,7 +55,7 @@ impl IndicatorRuleService {
         Ok(rule)
     }
 
-    pub fn arm_default_atr_rules(
+    pub fn subscribe_default_atr_rules(
         &mut self,
         candle_keys: &[CandleKey],
         breakout_ratio: f64,

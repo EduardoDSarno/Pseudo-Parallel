@@ -23,8 +23,13 @@ pub struct AtrRule {
 
 /* Struct used for subscriptions */
 #[derive(Debug, Clone)]
-pub struct Indicator{
-
+pub struct Indicator {
     pub(crate) key: CandleKey,
     pub(crate) kind: IndicatorRuleKind,
+}
+
+impl Indicator {
+    pub fn new(key: CandleKey, kind: IndicatorRuleKind) -> Self {
+        Indicator { key, kind }
+    }
 }

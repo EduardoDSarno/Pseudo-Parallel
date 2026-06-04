@@ -1,11 +1,11 @@
 use std::error::Error;
 
 use crate::market_data::{
+    clients::hyperliquid::hl_client::run_hyperliquid_client,
     config::MarketDataConfig,
-    hyperliquid::hl_client::run_hyperliquid_client,
     runtime::MarketDataRuntime,
-    signal::price::{alert::ManualPriceAlert, ManualPriceDirection},
     startup::seed_engine_from_rest,
+    subscriptions::placeholder::dev_signal_subscriptions,
     types::{CandleKey, Coins, Interval},
 };
 mod log;
@@ -14,13 +14,13 @@ mod market_data;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let _guard = log::init_logging();
-    tracing::info!("Engine starting");
+    tracing::info!("Market data runtime starting");
 
     let market_data_config = MarketDataConfig::default();
     let mut runtime = MarketDataRuntime::new(market_data_config);
     tracing::info!(
         max_closed_candles = market_data_config.max_closed_candles,
-        "Market data engine initialized"
+        "Market data runtime initialized"
     );
 
     // Candle streams we want to seed first and then keep receiving live data from.
@@ -35,28 +35,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     seed_engine_from_rest(&mut runtime, &candle_keys).await?;
     tracing::info!("REST seed finished");
 
-    // TEMP: hardcoded below alerts for live manual-price testing (remove when subscription API exists)
-    const TEST_BELOW_697: f64 = 69.3;
-    const TEST_BELOW_700: f64 = 69.7;
-    runtime
-        .alert_service_mut()
-        .subscribe(ManualPriceAlert::new(
-            Coins::HYPE,
-            TEST_BELOW_697,
-            ManualPriceDirection::Below,
-        ))?;
-    runtime
-        .alert_service_mut()
-        .subscribe(ManualPriceAlert::new(
-            Coins::HYPE,
-            TEST_BELOW_700,
-            ManualPriceDirection::Below,
-        ))?;
+    let subscriptions = dev_signal_subscriptions();
     tracing::info!(
-        below_697 = TEST_BELOW_697,
-        below_700 = TEST_BELOW_700,
-        "Hardcoded HYPE below alerts armed"
+        subscription_count = subscriptions.len(),
+        "Loading dev signal subscriptions"
     );
+    runtime.load_signal_subscriptions(subscriptions)?;
 
     tracing::info!("Starting live market data stream");
     // same keys as REST seed — client rebuilds subs on each connect

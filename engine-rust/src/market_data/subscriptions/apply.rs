@@ -56,13 +56,3 @@ pub fn apply_subscription(
     }
     Ok(())
 }
-
-pub fn load_all(
-    runtime: &mut MarketDataRuntime,
-    subs: Vec<SubscriptionManager>,
-) -> Result<(), Box<dyn Error>> {
-    for sub in subs {
-        apply_subscription(runtime, &sub)?;
-    }
-    Ok(())
-}
