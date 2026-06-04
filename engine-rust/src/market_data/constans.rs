@@ -23,8 +23,8 @@ pub const H1_INTERVAL_MS: u64 = 60 * ONE_MINUTE_MS;
 
 pub const PRICE_ALERT_INTERVAL_MS: u64 = M5_INTERVAL_MS;
 
-pub const ATR_BREAKOUT_RATIO: f64 = 2.5;
-pub const LIVE_ATR_DEBUG_RATIO: f64 = 0.8;
+pub const DEFAULT_ATR_BREAKOUT_RATIO: f64 = 2.5;
+pub const DEFAULT_LIVE_ATR_DEBUG_RATIO: f64 = 0.8;
 pub const _MIN_VALID_ATR: f64 = 0.0;
 
 pub const NO_SPIKE_LEVEL: u64 = 0;
