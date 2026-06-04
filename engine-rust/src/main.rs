@@ -1,7 +1,7 @@
 use std::error::Error;
 
 use crate::market_data::{
-    clients::hyperliquid::hl_client::run_hyperliquid_client, config::MarketDataConfig,
+    clients::run_client::run_market_data_clients, config::MarketDataConfig,
     runtime::MarketDataRuntime, startup,
 };
 mod log;
@@ -24,7 +24,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     tracing::info!("Starting live market data stream");
     // same keys as REST seed — client rebuilds subs on each connect
-    run_hyperliquid_client(&candle_keys, &mut runtime).await?;
+    run_market_data_clients(&candle_keys, &mut runtime).await?;
 
     Ok(())
 }
