@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 
 use crate::market_data::{
-    constans::{ATR_BREAKOUT_RATIO, LIVE_ATR_DEBUG_RATIO, MIN_CANDLES_FOR_ATR, NO_SPIKE_LEVEL},
-    engine::MarketView,
-    signal::indicators::atr::{calculate_average_true_range, calculate_true_range, ATR},
+    candle_store::CandleView,
+    constans::{MIN_CANDLES_FOR_ATR, NO_SPIKE_LEVEL},
+    signal::indicator_rules::{AtrRule, IndicatorRuleId},
+    signal::indicators_logic::atr::{calculate_average_true_range, calculate_true_range, ATR},
     types::CandleKey,
 };
 
@@ -14,12 +15,13 @@ struct LiveAlertState {
 }
 
 pub struct AtrAlert {
+    pub rule_id: IndicatorRuleId,
     pub key: CandleKey,
     pub atr: ATR,
 }
 
 pub struct AtrEvaluator {
-    live_alerts: HashMap<CandleKey, LiveAlertState>,
+    live_alerts: HashMap<IndicatorRuleId, LiveAlertState>,
 }
 
 impl AtrEvaluator {
@@ -29,26 +31,32 @@ impl AtrEvaluator {
         }
     }
 
-    pub fn evaluate_atr(&mut self, view: &MarketView<'_>) -> Option<AtrAlert> {
+    pub fn evaluate_atr(
+        &mut self,
+        view: &CandleView<'_>,
+        rule_id: IndicatorRuleId,
+        rule: &AtrRule,
+    ) -> Option<AtrAlert> {
         if view.closed_candles.len() < MIN_CANDLES_FOR_ATR {
             tracing::debug!(coin = ?view.key.coin, interval = ?view.key.interval, len = view.closed_candles.len(), min = MIN_CANDLES_FOR_ATR, "ATR buffer warming up");
             return None;
         }
 
-        let atr_input = view.closed_candles.iter().cloned().collect();
-        let latest_closed = view.closed_candles.back()?;
+        let closed = view.closed_candles;
+        let previous_closed = closed.get(closed.len() - 2)?;
+        let latest_closed = closed.back()?;
 
-        /* ATR baseline uses closed candles, but live_tr uses the candle forming now */
-        let live_tr = calculate_true_range(latest_closed, view.live_candle);
+        let atr_input = closed.iter().cloned().collect();
+        let closed_bar_tr = calculate_true_range(previous_closed, latest_closed);
         let mut atr = calculate_average_true_range(&atr_input)?
-            .with_live(live_tr, view.live_candle.open_time_ms)?;
+            .with_live(closed_bar_tr, latest_closed.open_time_ms)?;
 
         /* Level 1 means first threshold, level 2 means second threshold, and so on */
-        let spike_level = (atr.ratio / ATR_BREAKOUT_RATIO).floor() as u64;
+        let spike_level = (atr.ratio / rule.breakout_ratio).floor() as u64;
         atr.spike_level = spike_level;
 
-        if atr.ratio >= ATR_BREAKOUT_RATIO * LIVE_ATR_DEBUG_RATIO {
-            tracing::debug!(coin = ?view.key.coin, interval = ?view.key.interval, open_time = atr.open_time_ms, live_tr = atr.live_tr, atr = ?atr.baseline(), ratio = atr.ratio, spike_level = spike_level, "Live ATR evaluated");
+        if atr.ratio >= rule.breakout_ratio * rule.debug_ratio {
+            tracing::debug!(coin = ?view.key.coin, interval = ?view.key.interval, indicator_rule_id = rule_id.0, open_time = atr.open_time_ms, closed_bar_tr = atr.live_tr, atr = ?atr.baseline(), ratio = atr.ratio, spike_level = spike_level, "ATR evaluated on closed candles");
         }
 
         if spike_level == NO_SPIKE_LEVEL {
@@ -56,13 +64,10 @@ impl AtrEvaluator {
         }
 
         /* This state stops the same candle from alerting the same spike level again */
-        let state = self
-            .live_alerts
-            .entry(view.key.clone())
-            .or_insert(LiveAlertState {
-                open_time_ms: atr.open_time_ms,
-                last_spike_level: NO_SPIKE_LEVEL,
-            });
+        let state = self.live_alerts.entry(rule_id).or_insert(LiveAlertState {
+            open_time_ms: atr.open_time_ms,
+            last_spike_level: NO_SPIKE_LEVEL,
+        });
 
         if state.open_time_ms != atr.open_time_ms {
             state.open_time_ms = atr.open_time_ms;
@@ -75,6 +80,7 @@ impl AtrEvaluator {
 
         state.last_spike_level = spike_level;
         Some(AtrAlert {
+            rule_id,
             key: view.key.clone(),
             atr,
         })
