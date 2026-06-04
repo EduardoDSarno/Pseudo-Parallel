@@ -5,6 +5,7 @@ pub fn log_alerts(alerts: &[Alert]) {
     for alert in alerts {
         match &alert.event {
             Event::AtrBreakout {
+                indicator_rule_id,
                 atr,
                 live_tr,
                 ratio,
@@ -17,6 +18,7 @@ pub fn log_alerts(alerts: &[Alert]) {
                     .expect("ATR alerts always carry a candle key");
                 tracing::info!(
                     coin = ?alert.coin,
+                    indicator_rule_id = indicator_rule_id.0,
                     interval = ?key.interval,
                     open_time = open_time_ms,
                     atr = atr,

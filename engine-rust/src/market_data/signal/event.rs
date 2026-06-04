@@ -1,4 +1,5 @@
 use crate::market_data::{
+    signal::indicator_rules::IndicatorRuleId,
     signal::price::ManualPriceDirection,
     types::{CandleKey, Coins},
 };
@@ -10,6 +11,7 @@ will cover them all */
 #[derive(Debug)]
 pub enum Event {
     AtrBreakout {
+        indicator_rule_id: IndicatorRuleId,
         atr: f64,
         live_tr: f64,
         ratio: f64,

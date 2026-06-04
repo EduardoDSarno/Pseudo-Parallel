@@ -1,10 +1,11 @@
 use crate::market_data::{
-    engine::MarketView,
+    candle_store::CandleView,
     signal::{
         evaluate::evaluators::{
             indicator_evaluator::IndicatorEvaluator, price_evaluator::PriceEvaluator,
         },
         event::Alert,
+        indicator_rules::IndicatorRule,
         price::PriceAlertService,
     },
     types::Coins,
@@ -16,10 +17,10 @@ pub struct EventEvaluator {
 }
 
 impl EventEvaluator {
-    pub fn new(max_closed_candles: usize) -> Self {
+    pub fn new() -> Self {
         EventEvaluator {
             price_evaluator: PriceEvaluator::new(),
-            indicator_evaluator: IndicatorEvaluator::new(max_closed_candles),
+            indicator_evaluator: IndicatorEvaluator::new(),
         }
     }
 
@@ -33,7 +34,11 @@ impl EventEvaluator {
         self.price_evaluator
             .evaluate_price(alert_service, coin, previous_price, current_price)
     }
-    pub fn evaluate_indicators(&mut self, view: &MarketView<'_>) -> Vec<Alert> {
-        self.indicator_evaluator.evaluate_indicator(view)
+    pub fn evaluate_indicators(
+        &mut self,
+        view: &CandleView<'_>,
+        rules: &[IndicatorRule],
+    ) -> Vec<Alert> {
+        self.indicator_evaluator.evaluate_indicator(view, rules)
     }
 }
