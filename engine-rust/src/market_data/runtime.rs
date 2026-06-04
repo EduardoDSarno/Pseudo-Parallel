@@ -17,8 +17,8 @@ use crate::market_data::{
 
 /* This file is the composition root for the market data runtime.
 It owns all the pieces (candle store, alert service, evaluators) in one place.
-The coordinator orchestrator holds the playbook (process) but does not own state —
-main and hl_client hold a MarketDataRuntime and call into it. */
+The coordinator holds the playbook (process + live_loop) but does not own state —
+main holds a MarketDataRuntime and the live loop calls into it. */
 
 /* MarketDataRuntime is the single object that wires everything together.
 CandleStore stores candles, alert_service stores price levels, event_evaluator runs

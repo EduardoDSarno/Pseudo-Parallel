@@ -33,3 +33,5 @@ pub const FIRST_CANDLE_INDEX: usize = 0;
 pub const MIN_CANDLES_FOR_ATR: usize = 2;
 
 pub const PRICE_SCALE: f64 = 100_000_000.0;
+
+pub const BUFFER_SIZE_FOR_MPSC: usize = 32;

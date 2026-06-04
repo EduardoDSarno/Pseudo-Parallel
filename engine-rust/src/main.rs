@@ -1,9 +1,16 @@
 use std::error::Error;
 
+use tokio::sync::mpsc;
+
 use crate::market_data::{
-    clients::run_client::run_market_data_clients, config::MarketDataConfig,
-    runtime::MarketDataRuntime, startup,
+    alert_subscriptions::command::SubscriptionManager,
+    config::MarketDataConfig,
+    constans::BUFFER_SIZE_FOR_MPSC,
+    coordinator::run_live,
+    runtime::MarketDataRuntime,
+    startup,
 };
+
 mod log;
 mod market_data;
 
@@ -15,16 +22,22 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let market_data_config = MarketDataConfig::default();
     let candle_keys = market_data_config.candle_keys.clone();
     let mut runtime = MarketDataRuntime::new(market_data_config);
-    
-    tracing::info!(streams = candle_keys.len(), candle_keys = ?candle_keys, "Candle streams configured");
+
+    tracing::info!(
+        streams = candle_keys.len(),
+        candle_keys = ?candle_keys,
+        "Configurations set successefully"
+    );
 
     tracing::info!("Starting engine...");
     startup::prepare_market_data_runtime(&mut runtime, &candle_keys).await?;
 
+    let (subscription_sender, subscription_receiver) =
+        mpsc::channel::<SubscriptionManager>(BUFFER_SIZE_FOR_MPSC);
+    let _subscription_sender = subscription_sender; // stream task will own this next
 
     tracing::info!("Starting live market data stream");
-    // same keys as REST seed — client rebuilds subs on each connect
-    run_market_data_clients(&candle_keys, &mut runtime).await?;
+    run_live(&mut runtime, &candle_keys, subscription_receiver).await?;
 
     Ok(())
 }

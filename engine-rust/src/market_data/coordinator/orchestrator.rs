@@ -1,4 +1,5 @@
 use crate::market_data::{
+    alert_subscriptions::apply::apply_subscription,
     coordinator::{dispatch, market_update::MarketUpdate, signal_input::SignalInput},
     runtime::MarketDataRuntime,
 };
@@ -44,6 +45,16 @@ impl MarketDataRuntime {
                         "orchestrator: dispatching alerts"
                     );
                     dispatch::log_alerts(&alerts);
+                }
+            }
+            // if the update is subscription apply it to the books
+            MarketUpdate::Subscription(sub) => {
+                if let Err(err) = apply_subscription(self, &sub) {
+                    tracing::warn!(
+                        error = %err,
+                        ?sub,
+                        "orchestrator: subscription apply failed"
+                    );
                 }
             }
         }

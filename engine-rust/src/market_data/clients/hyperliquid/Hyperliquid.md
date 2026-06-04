@@ -26,9 +26,9 @@ hyperliquid/
             candle.rs
 ```
 
-`hl_client.rs` is responsible for the WebSocket connection itself. It takes `&[CandleKey]` from `main`, connects to
-Hyperliquid, sends subscription requests (rebuilt on every reconnect), keeps listening in a reconnect loop with backoff,
-and sends valid market data forward to the rest of the program.
+`hl_client.rs` is a transport helper: connect, send candle subscriptions, and decode WS frames into
+`MarketUpdate` (no runtime access). The coordinator `live_loop` owns reconnect, `select!`, stream health ticks,
+and signal subscription updates.
 
 `stream_health.rs` tracks the last candle per subscribed key and warns when a stream goes quiet for longer than about
 twice its interval.
@@ -45,40 +45,32 @@ candle structure. It is just the shape of the data exactly as Hyperliquid sends 
 
 ## WebSocket Flow
 
-The main flow starts from the caller, where we pass the same `candle_keys` used for REST seed into
-`run_hyperliquid_client`.
+The main flow starts from `main`, which passes the same `candle_keys` used for REST seed into
+`coordinator::run_live` along with the signal-subscription `mpsc` receiver.
 
-The Hyperliquid client then follows this order:
+The coordinator live loop then:
 
-1. Connect to the Hyperliquid WebSocket URL.
-2. Serialize each subscription into JSON (from each `CandleKey`).
-3. Send each subscription through the WebSocket.
-4. Keep listening for incoming WebSocket messages and run a periodic stream-health check.
-5. On disconnect or read error, sleep with backoff and loop back to step 1 (the process does not exit).
-6. If the message is text, try to deserialize it into `InboundMessage`.
-7. Match the inbound message type.
-8. If the message is a candle, convert it from `CandleHL` into our internal `Candle`.
-9. Send the internal `Candle` into the event/engine flow.
-
-So the simplified flow looks like this:
+1. Connects via `hl_client::connect_ws_hl`.
+2. Sends candle subscriptions via `hl_client::send_subscriptions`.
+3. Runs `select!` on WS messages, stream-health ticks, and subscription channel recv.
+4. On WS text, `hl_client::decode_ws_message` returns `MarketUpdate::Candle` when applicable.
+5. Calls `runtime.process(update)` for candles and subscriptions.
+6. On disconnect or read error, sleeps with backoff and loops back to step 1.
 
 ```text
-main.rs (candle_keys)
-    -> run_hyperliquid_client
-        -> connect_ws_hl
-        -> send subscriptions
-        -> read_message + health tick
-        -> match_response
-        -> CandleHL
-        -> Candle
-        -> process(MarketUpdate::Candle)
+main.rs (candle_keys, subscription_rx)
+    -> coordinator::run_live
+        -> hl_client::connect_ws_hl + send_subscriptions
+        -> select! { ws | health_tick | subscription_rx }
+        -> decode_ws_message -> MarketUpdate
+        -> runtime.process(...)
         -> (on drop) reconnect loop
 ```
 
 ## Reconnect and stream health
 
-**Connection drop** — we use one WebSocket for all candle streams. If it drops, `hl_client` reconnects with backoff and
-sends every subscription again. In-memory engine state is kept; we do not REST re-seed on reconnect in v1.
+**Connection drop** — we use one WebSocket for all candle streams. If it drops, the coordinator live loop reconnects with
+backoff and resends candle subscriptions. In-memory engine state is kept; we do not REST re-seed on reconnect in v1.
 
 **Per-stream silence** — the connection can stay up while one interval stops sending candles. `stream_health` warns once
 per key if there is no candle for about twice that interval’s length in milliseconds.
@@ -183,9 +175,8 @@ The Hyperliquid module should not care too much about:
 - How indicators are calculated.
 - How breakout signals are evaluated.
 
-Right now `hl_client.rs` still receives a mutable `CandleStore`, so the client is a little coupled to the engine. That is okay
-for now because the project is still small, but later if we add another market data source, we may want the client to return
-events instead of calling the engine directly.
+`hl_client.rs` returns `MarketUpdate` from decode and does not touch `MarketDataRuntime`. The coordinator applies updates.
+If we add another market data source, add a similar decode helper and extend the live loop `select!`.
 
 
 

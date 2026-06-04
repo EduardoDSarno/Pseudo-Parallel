@@ -2,11 +2,9 @@ use std::time::Instant;
 
 use crate::market_data::{
     clients::hyperliquid::{
-        hl_client::{apply_message_error_policy, read_message, WsReadAction},
+        hl_client::{apply_message_error_policy, decode_ws_message, WsReadAction},
         stream_health::CandleStreamHealth,
     },
-    config::MarketDataConfig,
-    runtime::MarketDataRuntime,
     types::{CandleKey, Coins, Interval},
 };
 use tokio_tungstenite::tungstenite::Message;
@@ -32,15 +30,14 @@ fn message_ok_resets_error_counter() {
 
 #[test]
 fn parse_error_returns_message_error() {
-    let mut runtime = MarketDataRuntime::new(MarketDataConfig::default());
     let keys = [CandleKey::new(Coins::HYPE, Interval::M5)];
     let mut health = CandleStreamHealth::new(&keys, Instant::now());
 
-    let action = read_message(
+    let (action, update) = decode_ws_message(
         Ok(Message::Text("{not valid json".to_string())),
-        &mut runtime,
         &mut health,
     );
 
     assert_eq!(action, WsReadAction::MessageError);
+    assert!(update.is_none());
 }
