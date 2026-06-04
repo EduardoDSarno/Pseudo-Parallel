@@ -40,6 +40,7 @@ impl PriceAlertService {
             .remove(key.coin, key.price_key, key.direction)
             .ok_or_else(|| -> Box<dyn Error> { "alert not found".into() })?;
 
+        tracing::debug!(?key, coin = ?key.coin, "alert unsubscribed");
         Ok(ManualPriceAlert::from_level(
             key.coin,
             key.direction,

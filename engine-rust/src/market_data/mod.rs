@@ -6,4 +6,5 @@ pub mod hyperliquid;
 pub mod runtime;
 pub mod signal;
 pub mod startup;
+pub mod subscriptions;
 pub mod types;
