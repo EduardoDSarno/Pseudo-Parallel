@@ -16,13 +16,13 @@ impl MarketDataRuntime {
                     "orchestrator: processing candle update"
                 );
 
-                // feed data to engine (currenlty just for candle)
-                let snapshot = super::candle_ingest::apply_candle(&mut self.engine, candle);
+                // feed data to candle store (currenlty just for candle)
+                let snapshot = super::candle_ingest::apply_candle(&mut self.candle_store, candle);
                 tracing::debug!(
                     coin = ?snapshot.candle_key.coin,
                     close = snapshot.close_price,
                     ?snapshot.candle_key,
-                    "orchestrator: engine ingest complete"
+                    "orchestrator: candle store ingest complete"
                 );
 
                 // running singnals (currenlty just for candle)

@@ -1,13 +1,13 @@
 use std::collections::VecDeque;
 
 use crate::market_data::{
+    candle_store::CandleStore,
+    clients::hyperliquid::protocols::rest::RestResponse,
     constans::FIRST_CANDLE_INDEX,
-    engine::Engine,
-    hyperliquid::protocols::rest::RestResponse,
     types::{Candle, CandleKey},
 };
 
-impl Engine {
+impl CandleStore {
     /* This function seeds assuming all received candles are closed already. Tests and non-REST callers can use it. */
     #[cfg(test)]
     pub fn seed_candles(&mut self, candles: VecDeque<Candle>) -> Result<(), String> {
@@ -15,7 +15,7 @@ impl Engine {
     }
 
     /* REST can return the candle forming right now. This keeps only closed candles in the buffer
-    and stores the forming candle in last_seen so the engine has one source of truth. */
+    and stores the forming candle in last_seen so the candle store has one source of truth. */
     pub fn seed_candles_at(
         &mut self,
         mut candles: VecDeque<Candle>,
@@ -23,7 +23,7 @@ impl Engine {
     ) -> Result<(), String> {
         // Data not passed
         if candles.is_empty() {
-            let err = "cannot seed engine with empty candle buffer".to_string();
+            let err = "cannot seed candle store with empty candle buffer".to_string();
             tracing::error!(error = %err, "Seed candles failed");
             return Err(err);
         }
@@ -48,7 +48,7 @@ impl Engine {
         // We use this so we can get the exact number of closed candles we need for warm up
         if closed_candles.len() < self.max_closed_candles {
             let err = format!(
-                "cannot seed engine with {} closed candles, expected at least {}",
+                "cannot seed candle store with {} closed candles, expected at least {}",
                 closed_candles.len(),
                 self.max_closed_candles
             );
@@ -98,7 +98,7 @@ impl Engine {
         tracing::info!(
             responses = responses.len(),
             seed_end_time,
-            "Seeding engine from REST responses"
+            "Seeding candle store from REST responses"
         );
 
         for response in responses {

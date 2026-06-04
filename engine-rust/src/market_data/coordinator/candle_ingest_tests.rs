@@ -1,8 +1,8 @@
 use std::collections::VecDeque;
 
 use crate::market_data::{
+    candle_store::CandleStore,
     coordinator::candle_ingest::apply_candle,
-    engine::Engine,
     types::{Candle, CandleKey, Coins, Interval},
 };
 
@@ -25,7 +25,7 @@ fn candle(open_time_ms: u64) -> Candle {
 
 #[test]
 fn new_bar_does_not_duplicate_tail_already_in_closed_buffer() {
-    let mut engine = Engine::new(TEST_MAX_CLOSED);
+    let mut engine = CandleStore::new(TEST_MAX_CLOSED);
     let key = CandleKey::new(Coins::HYPE, Interval::M5);
     let candles: VecDeque<Candle> = (0..TEST_MAX_CLOSED)
         .map(|i| candle(i as u64 * 300_000))

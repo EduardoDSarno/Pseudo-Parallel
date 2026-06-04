@@ -3,23 +3,23 @@ use std::collections::{HashMap, VecDeque};
 
 // THis struct will be responsible for handling Candle data and to store in memory
 // the current data we need
-pub struct Engine {
+pub struct CandleStore {
     pub(super) buffers: HashMap<CandleKey, VecDeque<Candle>>,
     last_seen: HashMap<CandleKey, Candle>,
     pub(super) max_closed_candles: usize,
 }
 
-impl Engine {
-    // Lazy approach to create a new engine simply empty Hashmaps
+impl CandleStore {
+    // Lazy approach to create a new candle store simply empty Hashmaps
     pub fn new(max_closed_candles: usize) -> Self {
-        Engine {
+        CandleStore {
             buffers: HashMap::new(),
             last_seen: HashMap::new(),
             max_closed_candles,
         }
     }
 
-    /* helpers to keep engine private for rest application, just pub for the mod */
+    /* helpers to keep candle store private for rest application, just pub for the mod */
     pub fn last_seen(&self, candle_key: &CandleKey) -> Option<&Candle> {
         self.last_seen.get(candle_key)
     }

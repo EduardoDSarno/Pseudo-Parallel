@@ -5,5 +5,5 @@ mod view;
 #[cfg(test)]
 mod tests;
 
-pub use core::Engine;
-pub use view::MarketView;
+pub use core::CandleStore;
+pub use view::CandleView;

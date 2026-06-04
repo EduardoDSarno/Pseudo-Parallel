@@ -35,14 +35,14 @@ fn test_key() -> CandleKey {
 
 #[test]
 fn seed_candles_rejects_empty_buffer() {
-    let mut engine = Engine::new(TEST_MAX_CLOSED_CANDLES);
+    let mut engine = CandleStore::new(TEST_MAX_CLOSED_CANDLES);
 
     assert!(engine.seed_candles(VecDeque::new()).is_err());
 }
 
 #[test]
 fn seed_candles_rejects_short_buffer() {
-    let mut engine = Engine::new(TEST_MAX_CLOSED_CANDLES);
+    let mut engine = CandleStore::new(TEST_MAX_CLOSED_CANDLES);
     let candles = (0..TEST_MAX_CLOSED_CANDLES - 1)
         .map(|i| {
             candle(
@@ -59,7 +59,7 @@ fn seed_candles_rejects_short_buffer() {
 
 #[test]
 fn seed_candles_trims_to_configured_size() {
-    let mut engine = Engine::new(TEST_MAX_CLOSED_CANDLES);
+    let mut engine = CandleStore::new(TEST_MAX_CLOSED_CANDLES);
     let candles = (0..TEST_MAX_CLOSED_CANDLES + 2)
         .map(|i| {
             candle(
@@ -81,7 +81,7 @@ fn seed_candles_trims_to_configured_size() {
 
 #[test]
 fn seed_candles_sets_last_seen_from_latest_candle() {
-    let mut engine = Engine::new(TEST_MAX_CLOSED_CANDLES);
+    let mut engine = CandleStore::new(TEST_MAX_CLOSED_CANDLES);
     let candles = (0..TEST_MAX_CLOSED_CANDLES)
         .map(|i| {
             candle(
@@ -103,7 +103,7 @@ fn seed_candles_sets_last_seen_from_latest_candle() {
 
 #[test]
 fn seed_candles_at_keeps_forming_candle_out_of_closed_buffer() {
-    let mut engine = Engine::new(TEST_MAX_CLOSED_CANDLES);
+    let mut engine = CandleStore::new(TEST_MAX_CLOSED_CANDLES);
     let candles = (0..TEST_MAX_CLOSED_CANDLES + 1)
         .map(|i| {
             candle(
@@ -132,7 +132,7 @@ fn seed_candles_at_keeps_forming_candle_out_of_closed_buffer() {
 
 #[test]
 fn seed_candles_at_uses_latest_closed_as_last_seen_when_no_forming_candle() {
-    let mut engine = Engine::new(TEST_MAX_CLOSED_CANDLES);
+    let mut engine = CandleStore::new(TEST_MAX_CLOSED_CANDLES);
     let candles = (0..TEST_MAX_CLOSED_CANDLES + 1)
         .map(|i| {
             candle(
@@ -158,7 +158,7 @@ fn seed_candles_at_uses_latest_closed_as_last_seen_when_no_forming_candle() {
 
 #[test]
 fn seed_candles_at_rejects_short_closed_buffer_after_forming_split() {
-    let mut engine = Engine::new(TEST_MAX_CLOSED_CANDLES);
+    let mut engine = CandleStore::new(TEST_MAX_CLOSED_CANDLES);
     let candles = (0..TEST_MAX_CLOSED_CANDLES)
         .map(|i| {
             candle(
@@ -177,7 +177,7 @@ fn seed_candles_at_rejects_short_closed_buffer_after_forming_split() {
 
 #[test]
 fn last_seen_can_be_updated() {
-    let mut engine = Engine::new(TEST_MAX_CLOSED_CANDLES);
+    let mut engine = CandleStore::new(TEST_MAX_CLOSED_CANDLES);
     let live = candle(TEST_LIVE_OPEN_TIME, 102.5, TEST_BASE_CLOSE, 102.5);
 
     engine.set_last_seen(test_key(), live.clone());
@@ -190,7 +190,7 @@ fn last_seen_can_be_updated() {
 
 #[test]
 fn push_closed_candle_caps_buffer_at_configured_size() {
-    let mut engine = Engine::new(TEST_MAX_CLOSED_CANDLES);
+    let mut engine = CandleStore::new(TEST_MAX_CLOSED_CANDLES);
 
     for i in 0..TEST_MAX_CLOSED_CANDLES + 1 {
         engine.push_closed_candle(
