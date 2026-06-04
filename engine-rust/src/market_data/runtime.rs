@@ -8,7 +8,7 @@ use crate::market_data::{
         evaluate::event_evaluator::EventEvaluator, indicator_rules::IndicatorRuleService,
         price::PriceAlertService,
     },
-    subscriptions::command::{SubscriptionCommand, SubscriptionManager, SubscriptionType},
+    subscriptions::{apply::load_all, command::SubscriptionManager},
     types::{CandleKey, Coins},
 };
 
@@ -79,61 +79,11 @@ impl MarketDataRuntime {
         &mut self.indicator_rule_service
     }
 
-    pub fn apply_subscription(&mut self, sub: &SubscriptionManager) -> Result<(), Box<dyn Error>> {
-        match sub.command {
-            SubscriptionCommand::Subscribe => match &sub.sub_type {
-                SubscriptionType::Price(alert) => {
-                    self.alert_service_mut().subscribe(alert.clone())?;
-                }
-                SubscriptionType::Indicator(ind) => {
-                    self.indicator_rule_service_mut()
-                        .subscribe(ind.key.clone(), ind.kind.clone());
-                }
-            },
-            SubscriptionCommand::Unsubscribe => match &sub.sub_type {
-                SubscriptionType::Price(alert) => {
-                    let key = alert.alert_key().map_err(|err| {
-                        tracing::error!(
-                            error = %err,
-                            ?alert,
-                            "apply_subscription: invalid price alert key for unsubscribe"
-                        );
-                        err
-                    })?;
-                    self.alert_service_mut().unsubscribe(key).map_err(|err| {
-                        tracing::warn!(
-                            error = %err,
-                            ?alert,
-                            "apply_subscription: price alert unsubscribe failed"
-                        );
-                        err
-                    })?;
-                }
-                SubscriptionType::Indicator(ind) => {
-                    self.indicator_rule_service_mut()
-                        .unsubscribe(ind.key.clone(), ind.kind.clone())
-                        .map_err(|err| {
-                            tracing::warn!(
-                                error = %err,
-                                key = ?ind.key,
-                                "apply_subscription: indicator rule unsubscribe failed"
-                            );
-                            err
-                        })?;
-                }
-            },
-        }
-        Ok(())
-    }
-
     pub fn load_signal_subscriptions(
         &mut self,
         subs: Vec<SubscriptionManager>,
     ) -> Result<(), Box<dyn Error>> {
-        for sub in subs {
-            self.apply_subscription(&sub)?;
-        }
-        Ok(())
+        load_all(self, subs)
     }
 
     pub(crate) fn last_market_price(&self, coin: Coins) -> Option<f64> {
