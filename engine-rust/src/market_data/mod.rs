@@ -7,4 +7,4 @@ pub mod runtime;
 pub mod signal;
 pub mod startup;
 pub mod types;
-pub mod subscriptions;
+pub mod alert_subscriptions;

@@ -80,6 +80,7 @@ fn indicator_rules_emit_alert_through_signal_pipeline() {
         max_closed_candles: 4,
         default_atr_breakout_ratio: 2.5,
         default_live_atr_debug_ratio: 0.8,
+        ..MarketDataConfig::default()
     };
     let mut runtime = MarketDataRuntime::new(config);
     let key = CandleKey::new(Coins::HYPE, Interval::M5);

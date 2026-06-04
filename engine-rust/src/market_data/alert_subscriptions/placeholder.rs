@@ -6,7 +6,7 @@ use crate::market_data::{
         },
         price::{alert::ManualPriceAlert, ManualPriceDirection},
     },
-    subscriptions::command::{SubscriptionCommand, SubscriptionManager, SubscriptionType},
+    alert_subscriptions::command::{SubscriptionCommand, SubscriptionManager, SubscriptionType},
     types::{CandleKey, Coins, Interval},
 };
 

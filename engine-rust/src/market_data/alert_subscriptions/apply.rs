@@ -2,7 +2,7 @@ use std::error::Error;
 
 use crate::market_data::{
     runtime::MarketDataRuntime,
-    subscriptions::command::{SubscriptionCommand, SubscriptionManager, SubscriptionType},
+    alert_subscriptions::command::{SubscriptionCommand, SubscriptionManager, SubscriptionType},
 };
 
 pub fn apply_subscription(

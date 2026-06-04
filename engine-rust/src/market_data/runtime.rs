@@ -8,7 +8,7 @@ use crate::market_data::{
         evaluate::event_evaluator::EventEvaluator, indicator_rules::IndicatorRuleService,
         price::PriceAlertService,
     },
-    subscriptions::{
+    alert_subscriptions::{
         apply::apply_subscription,
         command::SubscriptionManager,
     },

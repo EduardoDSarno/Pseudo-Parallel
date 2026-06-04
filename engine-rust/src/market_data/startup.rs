@@ -14,7 +14,23 @@ use crate::market_data::{
     },
     runtime::MarketDataRuntime,
     types::CandleKey,
+    alert_subscriptions::placeholder::dev_signal_subscriptions,
 };
+
+/* This function will be responsible for the warm up of the engine,
+    by seeding the canldes and loading the current subscriptions
+    (currenlty defoult for testing) */
+pub async fn prepare_market_data_runtime(
+    runtime: &mut MarketDataRuntime,
+    candle_keys: &[CandleKey],
+) -> Result<(), Box<dyn Error>> {
+    seed_engine_from_rest(runtime, candle_keys).await?;
+
+    let subscriptions = dev_signal_subscriptions();
+    runtime.load_signal_subscriptions(subscriptions)?;
+
+    Ok(())
+}
 
 /* Seeds the candle store from Hyperliquid REST before the live WebSocket starts.
 We need a full closed-candle buffer per stream so indicators (ATR) can run on the first
