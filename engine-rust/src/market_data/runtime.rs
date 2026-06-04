@@ -8,7 +8,10 @@ use crate::market_data::{
         evaluate::event_evaluator::EventEvaluator, indicator_rules::IndicatorRuleService,
         price::PriceAlertService,
     },
-    subscriptions::{apply::load_all, command::SubscriptionManager},
+    subscriptions::{
+        apply::apply_subscription,
+        command::SubscriptionManager,
+    },
     types::{CandleKey, Coins},
 };
 
@@ -83,7 +86,10 @@ impl MarketDataRuntime {
         &mut self,
         subs: Vec<SubscriptionManager>,
     ) -> Result<(), Box<dyn Error>> {
-        load_all(self, subs)
+        for sub in subs {
+            apply_subscription(self, &sub)?;
+        }
+        Ok(())
     }
 
     pub(crate) fn last_market_price(&self, coin: Coins) -> Option<f64> {
