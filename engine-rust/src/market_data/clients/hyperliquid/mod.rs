@@ -4,4 +4,4 @@ pub mod protocols;
 pub mod stream_health;
 
 #[cfg(test)]
-mod stream_health_tests;
+mod tests;
