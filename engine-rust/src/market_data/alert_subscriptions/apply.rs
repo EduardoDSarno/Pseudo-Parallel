@@ -1,8 +1,11 @@
 use std::error::Error;
 
 use crate::market_data::{
+    alert_subscriptions::{
+        command::{SubscriptionCommand, SubscriptionManager, SubscriptionType},
+        price_resolve::build_manual_price_alert,
+    },
     runtime::MarketDataRuntime,
-    alert_subscriptions::command::{SubscriptionCommand, SubscriptionManager, SubscriptionType},
 };
 
 pub fn apply_subscription(
@@ -11,8 +14,14 @@ pub fn apply_subscription(
 ) -> Result<(), Box<dyn Error>> {
     match sub.command {
         SubscriptionCommand::Subscribe => match &sub.sub_type {
-            SubscriptionType::Price(alert) => {
-                runtime.alert_service_mut().subscribe(alert.clone())?;
+            SubscriptionType::Price(spec) => {
+                let alert = build_manual_price_alert(
+                    runtime,
+                    spec.coin,
+                    spec.trigger_price,
+                    spec.direction,
+                )?;
+                runtime.alert_service_mut().subscribe(alert)?;
             }
             SubscriptionType::Indicator(ind) => {
                 runtime
@@ -21,7 +30,21 @@ pub fn apply_subscription(
             }
         },
         SubscriptionCommand::Unsubscribe => match &sub.sub_type {
-            SubscriptionType::Price(alert) => {
+            SubscriptionType::Price(spec) => {
+                let alert = build_manual_price_alert(
+                    runtime,
+                    spec.coin,
+                    spec.trigger_price,
+                    spec.direction,
+                )
+                .map_err(|err| {
+                    tracing::error!(
+                        error = %err,
+                        ?spec,
+                        "apply_subscription: could not resolve price alert for unsubscribe"
+                    );
+                    err
+                })?;
                 let key = alert.alert_key().map_err(|err| {
                     tracing::error!(
                         error = %err,

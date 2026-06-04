@@ -4,9 +4,11 @@ use crate::market_data::{
         indicator_rules::{
             indicator::Indicator, AtrRule, IndicatorRuleKind,
         },
-        price::{alert::ManualPriceAlert, ManualPriceDirection},
+        price::ManualPriceDirection,
     },
-    alert_subscriptions::command::{SubscriptionCommand, SubscriptionManager, SubscriptionType},
+    alert_subscriptions::command::{
+        PriceSubscriptionSpec, SubscriptionCommand, SubscriptionManager, SubscriptionType,
+    },
     types::{CandleKey, Coins, Interval},
 };
 
@@ -37,7 +39,11 @@ fn subscribe_price(
 ) -> SubscriptionManager {
     SubscriptionManager {
         command: SubscriptionCommand::Subscribe,
-        sub_type: SubscriptionType::Price(ManualPriceAlert::new(coin, trigger_price, direction)),
+        sub_type: SubscriptionType::Price(PriceSubscriptionSpec {
+            coin,
+            trigger_price,
+            direction: Some(direction),
+        }),
     }
 }
 

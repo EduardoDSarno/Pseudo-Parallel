@@ -4,7 +4,9 @@ use std::error::Error;
 
 use crate::market_data::{
     alert_subscriptions::{
-        command::{SubscriptionCommand, SubscriptionManager, SubscriptionType},
+        command::{
+            PriceSubscriptionSpec, SubscriptionCommand, SubscriptionManager, SubscriptionType,
+        },
         incoming::{
             IncomingAtrRule, IncomingIndicatorKind, IncomingIndicatorSubscription,
             IncomingPriceSubscription, IncomingSubscription, IncomingSubscriptionType,
@@ -14,7 +16,7 @@ use crate::market_data::{
         indicator_rules::{
             indicator::Indicator, AtrRule, IndicatorRuleKind,
         },
-        price::{alert::ManualPriceAlert, ManualPriceDirection},
+        price::ManualPriceDirection,
     },
     types::CandleKey,
 };
@@ -35,7 +37,7 @@ fn to_subscription_type(
 ) -> Result<SubscriptionType, Box<dyn Error>> {
     match sub_type {
         IncomingSubscriptionType::Price(p) => {
-            Ok(SubscriptionType::Price(to_manual_price_alert(p)?))
+            Ok(SubscriptionType::Price(to_price_subscription_spec(p)?))
         }
         IncomingSubscriptionType::Indicator(i) => {
             Ok(SubscriptionType::Indicator(to_indicator(i)?))
@@ -43,15 +45,19 @@ fn to_subscription_type(
     }
 }
 
-/* Wire price fields -> ManualPriceAlert (direction string parsed here). */
-fn to_manual_price_alert(
+/* Wire price fields -> spec; omit direction to infer in apply_subscription. */
+fn to_price_subscription_spec(
     incoming: IncomingPriceSubscription,
-) -> Result<ManualPriceAlert, Box<dyn Error>> {
-    Ok(ManualPriceAlert::new(
-        incoming.coin,
-        incoming.trigger_price,
-        parse_direction(&incoming.direction)?,
-    ))
+) -> Result<PriceSubscriptionSpec, Box<dyn Error>> {
+    let direction = match incoming.direction {
+        Some(s) if !s.trim().is_empty() => Some(parse_direction(&s)?),
+        _ => None,
+    };
+    Ok(PriceSubscriptionSpec {
+        coin: incoming.coin,
+        trigger_price: incoming.trigger_price,
+        direction,
+    })
 }
 
 /* Wire indicator fields -> Indicator (candle key + rule kind). */

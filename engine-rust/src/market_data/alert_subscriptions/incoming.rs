@@ -42,5 +42,6 @@ pub struct IncomingAtrRule {
 pub struct IncomingPriceSubscription {
     pub coin: Coins,
     pub trigger_price: f64,
-    pub direction: String,
+    #[serde(default)]
+    pub direction: Option<String>,
 }

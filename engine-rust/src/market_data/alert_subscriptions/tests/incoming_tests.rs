@@ -28,10 +28,34 @@ fn deserializes_price_subscription() {
 
     assert_eq!(manager.command, SubscriptionCommand::Subscribe);
     match manager.sub_type {
-        SubscriptionType::Price(alert) => {
-            assert_eq!(alert.coin, Coins::HYPE);
-            assert_eq!(alert.trigger_price, 69.3);
-            assert_eq!(alert.direction, ManualPriceDirection::Below);
+        SubscriptionType::Price(spec) => {
+            assert_eq!(spec.coin, Coins::HYPE);
+            assert_eq!(spec.trigger_price, 69.3);
+            assert_eq!(spec.direction, Some(ManualPriceDirection::Below));
+        }
+        SubscriptionType::Indicator(_) => panic!("expected price"),
+    }
+}
+
+#[test]
+fn deserializes_price_subscription_without_direction() {
+    let json = r#"{
+        "command": "subscribe",
+        "sub_type": {
+            "type": "price",
+            "coin": "HYPE",
+            "trigger_price": 70.0
+        }
+    }"#;
+
+    let incoming: IncomingSubscription = serde_json::from_str(json).unwrap();
+    let manager = to_subscription_manager(incoming).unwrap();
+
+    match manager.sub_type {
+        SubscriptionType::Price(spec) => {
+            assert_eq!(spec.coin, Coins::HYPE);
+            assert_eq!(spec.trigger_price, 70.0);
+            assert_eq!(spec.direction, None);
         }
         SubscriptionType::Indicator(_) => panic!("expected price"),
     }

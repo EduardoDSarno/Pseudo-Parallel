@@ -1,10 +1,19 @@
 use crate::market_data::signal::{
-    indicator_rules::indicator::Indicator, price::alert::ManualPriceAlert,
+    indicator_rules::indicator::Indicator, price::ManualPriceDirection,
 };
+use crate::market_data::types::Coins;
+
+/* Wire / channel price sub — direction may be omitted and inferred in apply. */
+#[derive(Debug, Clone)]
+pub struct PriceSubscriptionSpec {
+    pub coin: Coins,
+    pub trigger_price: f64,
+    pub direction: Option<ManualPriceDirection>,
+}
 
 #[derive(Debug, Clone)]
 pub enum SubscriptionType {
-    Price(ManualPriceAlert),
+    Price(PriceSubscriptionSpec),
     Indicator(Indicator),
 }
 
