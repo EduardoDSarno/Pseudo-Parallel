@@ -1,3 +1,4 @@
+pub mod alert_subscriptions;
 pub mod candle_store;
 pub mod clients;
 pub mod config;
@@ -7,4 +8,3 @@ pub mod runtime;
 pub mod signal;
 pub mod startup;
 pub mod types;
-pub mod alert_subscriptions;

@@ -35,8 +35,7 @@ impl MarketDataRuntime {
         let mut alerts = price_alerts;
 
         if let Some(view) = self.candle_store.market_view(&snapshot.candle_key) {
-            if snapshot.bar_just_closed 
-            {
+            if snapshot.bar_just_closed {
                 let indicator_rules = self
                     .indicator_rule_service()
                     .rules_for_key(&snapshot.candle_key);
@@ -52,9 +51,7 @@ impl MarketDataRuntime {
                     "orchestrator: indicator signal pass complete"
                 );
                 alerts.extend(indicator_alerts);
-            } 
-            else 
-            {
+            } else {
                 tracing::trace!(
                     candle_key = ?snapshot.candle_key,
                     "orchestrator: skipping indicators until bar close (closed-candle v1)"

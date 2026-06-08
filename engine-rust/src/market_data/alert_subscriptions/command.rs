@@ -28,4 +28,3 @@ pub struct SubscriptionManager {
     pub sub_type: SubscriptionType,
     pub command: SubscriptionCommand,
 }
-

@@ -43,14 +43,17 @@ pub fn apply_subscription(
                     );
                     err
                 })?;
-                runtime.alert_service_mut().unsubscribe(key).map_err(|err| {
-                    tracing::warn!(
-                        error = %err,
-                        ?alert,
-                        "apply_subscription: price alert unsubscribe failed"
-                    );
-                    err
-                })?;
+                runtime
+                    .alert_service_mut()
+                    .unsubscribe(key)
+                    .map_err(|err| {
+                        tracing::warn!(
+                            error = %err,
+                            ?alert,
+                            "apply_subscription: price alert unsubscribe failed"
+                        );
+                        err
+                    })?;
             }
             SubscriptionType::Indicator(ind) => {
                 runtime
@@ -94,8 +97,7 @@ fn reference_price_for_coin(runtime: &MarketDataRuntime, coin: Coins) -> Option<
     }
     let key = CandleKey::new(coin, Interval::M5);
     let view = runtime.candle_store.market_view(&key)?;
-    view
-        .closed_candles
+    view.closed_candles
         .back()
         .map(|c| c.close_price)
         .or(Some(view.live_candle.close_price))

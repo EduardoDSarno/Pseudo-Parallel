@@ -1,5 +1,5 @@
 /* Incoming subscription messages from JSON / Redis / API — deserialize only.
-   Use convert.rs to build SubscriptionManager. */
+Use convert.rs to build SubscriptionManager. */
 
 use serde::Deserialize;
 
@@ -10,6 +10,13 @@ use crate::market_data::types::{Coins, Interval};
 pub struct IncomingSubscription {
     pub command: String,
     pub sub_type: IncomingSubscriptionType,
+}
+
+impl IncomingSubscription {
+    /* Serde helper */
+    pub fn parse_message(raw: &str) -> Result<IncomingSubscription, serde_json::Error> {
+        serde_json::from_str(raw)
+    }
 }
 
 #[derive(Debug, Deserialize)]

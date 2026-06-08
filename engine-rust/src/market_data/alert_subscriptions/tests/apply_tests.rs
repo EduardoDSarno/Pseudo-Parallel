@@ -1,7 +1,9 @@
 use crate::market_data::{
     alert_subscriptions::{
         apply::apply_subscription,
-        command::{PriceSubscriptionSpec, SubscriptionCommand, SubscriptionManager, SubscriptionType},
+        command::{
+            PriceSubscriptionSpec, SubscriptionCommand, SubscriptionManager, SubscriptionType,
+        },
     },
     config::MarketDataConfig,
     runtime::MarketDataRuntime,

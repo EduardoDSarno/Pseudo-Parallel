@@ -2,9 +2,7 @@ use futures_util::StreamExt;
 use tokio::sync::mpsc;
 
 use crate::market_data::alert_subscriptions::{
-    command::SubscriptionManager,
-    convert::to_subscription_manager,
-    incoming::IncomingSubscription,
+    command::SubscriptionManager, convert::to_subscription_manager, incoming::IncomingSubscription,
 };
 
 /* Redis side of the subscription pipe — TS backend PUBLISHes JSON here,
@@ -27,8 +25,8 @@ impl RedisSubscriptionStream {
     }
 
     /* Subscribe to a redis channel and loop forever on incoming messages.
-       Each message is JSON from backend-ts (same shape as incoming.rs).
-       Parsed subs go on mpsc → run_live select! recv arm → apply_subscription. */
+    Each message is JSON from backend-ts (same shape as incoming.rs).
+    Parsed subs go on mpsc → run_live select! recv arm → apply_subscription. */
     pub async fn bind_to_stream(self, channel: &str) -> Result<(), Box<dyn std::error::Error>> {
         // pub/sub needs its own connection — not the same as normal redis commands
         let mut pubsub = self.redis_client.get_async_pubsub().await?;
@@ -39,7 +37,8 @@ impl RedisSubscriptionStream {
         // clone the sender handle for the loop — Sender is cheap to copy
         let subscription_sender = self.subscription_sender;
 
-        while let Some(msg) = stream.next().await // wait for next message
+        while let Some(msg) = stream.next().await
+        // wait for next message
         {
             let payload: String = msg.get_payload()?; // Msg → string (our JSON)
             tracing::info!(payload = %payload, "redis subscription message received");
@@ -50,8 +49,8 @@ impl RedisSubscriptionStream {
     }
 
     /* Parse one redis payload and push a SubscriptionManager on the mpsc channel.
-       Bad JSON or convert errors are logged and skipped — we don't crash the listener. */
-    async fn run_subscription(
+    Bad JSON or convert errors are logged and skipped — we don't crash the listener. */
+    pub(crate) async fn run_subscription(
         payload: String,
         subscription_sender: &mpsc::Sender<SubscriptionManager>,
     ) {
@@ -79,3 +78,4 @@ impl RedisSubscriptionStream {
         }
     }
 }
+

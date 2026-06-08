@@ -17,10 +17,10 @@ pub fn resolve_price_direction(
     } else if reference > trigger {
         Ok(ManualPriceDirection::Below)
     } else {
-        Err(format!(
-            "reference price {reference} equals trigger {trigger}; cannot infer direction"
+        Err(
+            format!("reference price {reference} equals trigger {trigger}; cannot infer direction")
+                .into(),
         )
-        .into())
     }
 }
 

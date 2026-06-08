@@ -1,8 +1,6 @@
 use crate::market_data::{
     signal::price::{
-        build_manual_price_alert,
-        resolve::resolve_price_direction,
-        ManualPriceDirection,
+        build_manual_price_alert, resolve::resolve_price_direction, ManualPriceDirection,
     },
     types::Coins,
 };
@@ -30,20 +28,15 @@ fn resolve_price_direction_rejects_equal_reference_and_trigger() {
 
 #[test]
 fn build_manual_price_alert_infers_from_reference() {
-    let alert =
-        build_manual_price_alert(Coins::HYPE, 70.0, None, Some(65.0)).unwrap();
+    let alert = build_manual_price_alert(Coins::HYPE, 70.0, None, Some(65.0)).unwrap();
     assert_eq!(alert.direction, ManualPriceDirection::Above);
 }
 
 #[test]
 fn build_manual_price_alert_uses_explicit_direction_without_reference() {
-    let alert = build_manual_price_alert(
-        Coins::HYPE,
-        70.0,
-        Some(ManualPriceDirection::Below),
-        None,
-    )
-    .unwrap();
+    let alert =
+        build_manual_price_alert(Coins::HYPE, 70.0, Some(ManualPriceDirection::Below), None)
+            .unwrap();
     assert_eq!(alert.direction, ManualPriceDirection::Below);
 }
 

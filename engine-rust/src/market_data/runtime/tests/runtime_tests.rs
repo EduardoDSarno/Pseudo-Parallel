@@ -1,9 +1,9 @@
 use crate::market_data::{
-    alert_subscriptions::{
-        command::{PriceSubscriptionSpec, SubscriptionCommand, SubscriptionManager, SubscriptionType},
-        placeholder::dev_signal_subscriptions,
+    alert_subscriptions::command::{
+        PriceSubscriptionSpec, SubscriptionCommand, SubscriptionManager, SubscriptionType,
     },
     config::MarketDataConfig,
+    signal::indicator::indicator_rules::{indicator::Indicator, AtrRule, IndicatorRuleKind},
     signal::price::{alert::ManualPriceAlert, ManualPriceDirection},
     types::{CandleKey, Coins, Interval},
 };
@@ -43,13 +43,20 @@ fn load_signal_subscriptions_applies_price_alerts() {
 }
 
 #[test]
-fn load_signal_subscriptions_applies_dev_placeholder_subs() {
+fn load_signal_subscriptions_applies_explicit_price_subs() {
     let mut runtime = MarketDataRuntime::new(MarketDataConfig::default());
     runtime.set_last_market_price(Coins::HYPE, 60.0);
 
-    runtime
-        .load_signal_subscriptions(dev_signal_subscriptions())
-        .unwrap();
+    let subs = vec![SubscriptionManager {
+        command: SubscriptionCommand::Subscribe,
+        sub_type: SubscriptionType::Price(PriceSubscriptionSpec {
+            coin: Coins::HYPE,
+            trigger_price: 69.3,
+            direction: Some(ManualPriceDirection::Below),
+        }),
+    }];
+
+    runtime.load_signal_subscriptions(subs).unwrap();
 
     let below_697 = ManualPriceAlert::new(Coins::HYPE, 69.3, ManualPriceDirection::Below);
     assert!(runtime
@@ -65,5 +72,30 @@ fn load_default_indicator_rules_subscribes_atr_for_key() {
 
     runtime.load_default_indicator_rules(&[key.clone()]);
 
-    assert!(!runtime.indicator_rule_service().rules_for_key(&key).is_empty());
+    assert!(!runtime
+        .indicator_rule_service()
+        .rules_for_key(&key)
+        .is_empty());
+}
+
+#[test]
+fn load_signal_subscriptions_applies_indicator_rules() {
+    let mut runtime = MarketDataRuntime::new(MarketDataConfig::default());
+    let key = CandleKey::new(Coins::HYPE, Interval::M5);
+    let kind = IndicatorRuleKind::Atr(AtrRule {
+        breakout_ratio: 2.5,
+        debug_ratio: 0.8,
+    });
+
+    let subs = vec![SubscriptionManager {
+        command: SubscriptionCommand::Subscribe,
+        sub_type: SubscriptionType::Indicator(Indicator::new(key.clone(), kind)),
+    }];
+
+    runtime.load_signal_subscriptions(subs).unwrap();
+
+    assert!(!runtime
+        .indicator_rule_service()
+        .rules_for_key(&key)
+        .is_empty());
 }

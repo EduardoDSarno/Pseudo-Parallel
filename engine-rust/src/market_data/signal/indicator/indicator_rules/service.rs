@@ -19,8 +19,7 @@ impl IndicatorRuleService {
     }
 
     pub fn subscribe(&mut self, key: CandleKey, kind: IndicatorRuleKind) -> IndicatorRule {
-        let rule = IndicatorRule 
-        {
+        let rule = IndicatorRule {
             id: self.next_rule_id(),
             key: key.clone(),
             kind,

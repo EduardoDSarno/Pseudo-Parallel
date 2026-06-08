@@ -13,9 +13,7 @@ use crate::market_data::{
         },
     },
     signal::{
-        indicator_rules::{
-            indicator::Indicator, AtrRule, IndicatorRuleKind,
-        },
+        indicator_rules::{indicator::Indicator, AtrRule, IndicatorRuleKind},
         price::ManualPriceDirection,
     },
     types::CandleKey,
@@ -39,9 +37,7 @@ fn to_subscription_type(
         IncomingSubscriptionType::Price(p) => {
             Ok(SubscriptionType::Price(to_price_subscription_spec(p)?))
         }
-        IncomingSubscriptionType::Indicator(i) => {
-            Ok(SubscriptionType::Indicator(to_indicator(i)?))
-        }
+        IncomingSubscriptionType::Indicator(i) => Ok(SubscriptionType::Indicator(to_indicator(i)?)),
     }
 }
 
@@ -63,10 +59,7 @@ fn to_price_subscription_spec(
 /* Wire indicator fields -> Indicator (candle key + rule kind). */
 fn to_indicator(incoming: IncomingIndicatorSubscription) -> Result<Indicator, Box<dyn Error>> {
     let key = CandleKey::new(incoming.coin, incoming.interval);
-    Ok(Indicator::new(
-        key,
-        to_indicator_rule_kind(incoming.kind),
-    ))
+    Ok(Indicator::new(key, to_indicator_rule_kind(incoming.kind)))
 }
 
 /* Match incoming indicator type to engine IndicatorRuleKind — add arms when we add indicators. */

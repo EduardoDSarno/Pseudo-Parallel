@@ -14,8 +14,8 @@ use tokio::net::TcpStream;
 use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
 
 /* This file has the simple job of creatinga hyperliquid connection.
-    deconthing this message, and match it with match_inbound that will return
-    possibly a market update */
+deconthing this message, and match it with match_inbound that will return
+possibly a market update */
 #[derive(Debug, PartialEq, Eq)]
 pub enum WsReadAction {
     Continue,
@@ -26,14 +26,10 @@ pub enum WsReadAction {
 
 /* Connect to Hyperliquid WS. */
 pub async fn connect_ws_hl(
-) -> Result<WebSocketStream<MaybeTlsStream<TcpStream>>, Box<dyn std::error::Error>> 
-{
- 
+) -> Result<WebSocketStream<MaybeTlsStream<TcpStream>>, Box<dyn std::error::Error>> {
     tracing::info!(url = HYPERLIQUID_WS_URL, "Connecting to Hyperliquid WS");
 
-    let (ws_stream, response) = 
-    connect_async(HYPERLIQUID_WS_URL).await.inspect_err
-    (
+    let (ws_stream, response) = connect_async(HYPERLIQUID_WS_URL).await.inspect_err(
         |err| tracing::error!(url = HYPERLIQUID_WS_URL, error = %err, "Connection failed"),
     )?;
 
@@ -46,11 +42,8 @@ pub async fn connect_ws_hl(
 pub async fn send_subscriptions(
     ws_stream: &mut WebSocketStream<MaybeTlsStream<TcpStream>>,
     candle_keys: &[CandleKey],
-) -> Result<(), Box<dyn std::error::Error>> 
-{
-
-    for key in candle_keys 
-    {
+) -> Result<(), Box<dyn std::error::Error>> {
+    for key in candle_keys {
         // create subscription message struct
         let sub = subscribe_candle(key.coin, key.interval.clone());
 
@@ -78,8 +71,7 @@ pub fn next_backoff(current: Duration) -> Duration {
 pub fn decode_ws_message(
     result: Result<Message, tokio_tungstenite::tungstenite::Error>,
     health: &mut CandleStreamHealth,
-) -> (WsReadAction, Option<MarketUpdate>) 
-{
+) -> (WsReadAction, Option<MarketUpdate>) {
     match result {
         Ok(Message::Text(text)) => {
             let deserialized = serde_json::from_str::<InboundMessage>(&text);
@@ -149,8 +141,7 @@ fn match_inbound(
     message_response: Result<InboundMessage, serde_json::Error>,
     health: &mut CandleStreamHealth,
 ) -> Result<Option<MarketUpdate>, Box<dyn std::error::Error>> {
-    match message_response 
-    {
+    match message_response {
         // if the message match a subscription response, everything is fine
         Ok(InboundMessage::SubscriptionResponse(response)) => {
             tracing::info!(

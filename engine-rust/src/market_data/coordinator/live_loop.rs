@@ -8,7 +8,10 @@ use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use crate::market_data::{
     alert_subscriptions::command::SubscriptionManager,
     clients::hyperliquid::{
-        hl_client::{apply_message_error_policy, connect_ws_hl, decode_ws_message, next_backoff, send_subscriptions, WsReadAction},
+        hl_client::{
+            apply_message_error_policy, connect_ws_hl, decode_ws_message, next_backoff,
+            send_subscriptions, WsReadAction,
+        },
         stream_health::CandleStreamHealth,
     },
     constans::{STREAM_HEALTH_CHECK_INTERVAL_MS, WS_RECONNECT_INITIAL_MS},
@@ -29,7 +32,10 @@ pub async fn run_live(
     candle_keys: &[CandleKey],
     mut subscription_receiver: mpsc::Receiver<SubscriptionManager>, // passing receiver end of stream
 ) -> Result<(), Box<dyn Error>> {
-    tracing::info!(streams = candle_keys.len(), "Starting live coordinator loop");
+    tracing::info!(
+        streams = candle_keys.len(),
+        "Starting live coordinator loop"
+    );
 
     // exponation backoff for connection failling
     let mut backoff = Duration::from_millis(WS_RECONNECT_INITIAL_MS);
@@ -49,8 +55,7 @@ pub async fn run_live(
         } = session;
 
         let mut consecutive_message_errors = 0; // counter for errors
-        loop 
-        {
+        loop {
             /* This is reached just when connection is successefull */
             tokio::select! {
                 // this stream reads next message decodes into an action (cotinue, reconnect etc)
@@ -66,13 +71,13 @@ pub async fn run_live(
                             let (action, update) = decode_ws_message(msg_result, &mut health);
 
                             // if any found process it
-                            if let Some(market_update) = update 
+                            if let Some(market_update) = update
                             {
                                 runtime.process(market_update);
                             }
                             // control states (reconnection, and errors)
                             // update backoff if nescessary
-                            match apply_message_error_policy(action, &mut consecutive_message_errors) 
+                            match apply_message_error_policy(action, &mut consecutive_message_errors)
                             {
                                 WsReadAction::Continue => {}
                                 WsReadAction::MessageOk => {}
@@ -88,7 +93,7 @@ pub async fn run_live(
                 }
                 // That arm waits on the receiver side of the mpsc channel from main
                 // if some menager a subscription was sent
-                sub = subscription_receiver.recv() => 
+                sub = subscription_receiver.recv() =>
                 {
                     match sub {
                         Some(manager) => {

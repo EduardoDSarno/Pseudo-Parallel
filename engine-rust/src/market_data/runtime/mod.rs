@@ -1,10 +1,7 @@
 use std::{collections::HashMap, error::Error};
 
 use crate::market_data::{
-    alert_subscriptions::{
-        apply::apply_subscription,
-        command::SubscriptionManager,
-    },
+    alert_subscriptions::{apply::apply_subscription, command::SubscriptionManager},
     candle_store::CandleStore,
     clients::hyperliquid::protocols::rest::RestResponse,
     config::MarketDataConfig,
