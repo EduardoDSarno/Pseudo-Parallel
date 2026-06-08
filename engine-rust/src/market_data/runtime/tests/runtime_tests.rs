@@ -66,11 +66,17 @@ fn load_signal_subscriptions_applies_explicit_price_subs() {
 }
 
 #[test]
-fn load_default_indicator_rules_subscribes_atr_for_key() {
+fn indicator_rule_service_subscribes_atr_for_key() {
     let mut runtime = MarketDataRuntime::new(MarketDataConfig::default());
     let key = CandleKey::new(Coins::HYPE, Interval::M5);
 
-    runtime.load_default_indicator_rules(&[key.clone()]);
+    runtime.indicator_rule_service_mut().subscribe(
+        key.clone(),
+        IndicatorRuleKind::Atr(AtrRule {
+            breakout_ratio: 2.5,
+            debug_ratio: 0.8,
+        }),
+    );
 
     assert!(!runtime
         .indicator_rule_service()

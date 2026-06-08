@@ -59,15 +59,3 @@ fn unsubscribe_errors_when_rule_missing() {
     assert_eq!(err.to_string(), "indicator rule not found");
 }
 
-#[test]
-fn subscribe_default_atr_rules_creates_one_rule_per_key() {
-    let mut service = IndicatorRuleService::new();
-    let keys = [key(Interval::M5), key(Interval::M15), key(Interval::H1)];
-
-    let ids = service.subscribe_default_atr_rules(&keys, 2.5, 0.8);
-
-    assert_eq!(ids.len(), keys.len());
-    for key in keys {
-        assert_eq!(service.rules_for_key(&key).len(), 1);
-    }
-}

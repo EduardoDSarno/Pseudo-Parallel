@@ -1,7 +1,7 @@
 use std::{collections::HashMap, error::Error};
 
 use crate::market_data::{
-    signal::indicator_rules::{AtrRule, IndicatorRule, IndicatorRuleId, IndicatorRuleKind},
+    signal::indicator_rules::{ IndicatorRule, IndicatorRuleId, IndicatorRuleKind},
     types::CandleKey,
 };
 
@@ -52,27 +52,6 @@ impl IndicatorRuleService {
 
         tracing::debug!(?rule.id, ?key, "indicator rule unsubscribed");
         Ok(rule)
-    }
-
-    pub fn subscribe_default_atr_rules(
-        &mut self,
-        candle_keys: &[CandleKey],
-        breakout_ratio: f64,
-        debug_ratio: f64,
-    ) -> Vec<IndicatorRuleId> {
-        candle_keys
-            .iter()
-            .map(|key| {
-                self.subscribe(
-                    key.clone(),
-                    IndicatorRuleKind::Atr(AtrRule {
-                        breakout_ratio,
-                        debug_ratio,
-                    }),
-                )
-                .id
-            })
-            .collect()
     }
 
     pub fn rules_for_key(&self, key: &CandleKey) -> Vec<IndicatorRule> {

@@ -1,7 +1,14 @@
-use std::{collections::HashMap, error::Error};
+#[cfg(test)]
+use std::error::Error;
 
+use std::collections::HashMap;
+
+#[cfg(test)]
+use crate::market_data::alert_subscriptions::{
+    apply::apply_subscription,
+    command::SubscriptionManager,
+};
 use crate::market_data::{
-    alert_subscriptions::{apply::apply_subscription, command::SubscriptionManager},
     candle_store::CandleStore,
     clients::hyperliquid::protocols::rest::RestResponse,
     config::MarketDataConfig,
@@ -80,19 +87,12 @@ impl MarketDataRuntime {
     }
 
     #[cfg(test)]
-    pub fn load_default_indicator_rules(&mut self, keys: &[CandleKey]) {
-        self.indicator_rule_service.subscribe_default_atr_rules(
-            keys,
-            self.config.default_atr_breakout_ratio,
-            self.config.default_live_atr_debug_ratio,
-        );
-    }
-
     pub fn load_signal_subscriptions(
         &mut self,
         subs: Vec<SubscriptionManager>,
     ) -> Result<(), Box<dyn Error>> {
         for sub in subs {
+
             apply_subscription(self, &sub)?;
         }
         Ok(())

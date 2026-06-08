@@ -5,6 +5,7 @@ use crate::market_data::{
     runtime::MarketDataRuntime,
     signal::{
         event::Event,
+        indicator_rules::{AtrRule, IndicatorRuleKind},
         price::{alert::ManualPriceAlert, ManualPriceDirection},
     },
     types::Candle,
@@ -78,8 +79,6 @@ fn non_m5_candle_skips_price_alert_evaluation() {
 fn indicator_rules_emit_alert_through_signal_pipeline() {
     let config = MarketDataConfig {
         max_closed_candles: 4,
-        default_atr_breakout_ratio: 2.5,
-        default_live_atr_debug_ratio: 0.8,
         ..MarketDataConfig::default()
     };
     let mut runtime = MarketDataRuntime::new(config);
@@ -97,7 +96,13 @@ fn indicator_rules_emit_alert_through_signal_pipeline() {
         .seed_candles_at(closed_candles, 4 * M5_INTERVAL_MS + 1)
         .unwrap();
     runtime.candle_store.set_last_seen(key.clone(), live_candle);
-    runtime.load_default_indicator_rules(&[key]);
+    runtime.indicator_rule_service_mut().subscribe(
+        key,
+        IndicatorRuleKind::Atr(AtrRule {
+            breakout_ratio: 2.5,
+            debug_ratio: 0.8,
+        }),
+    );
 
     let alerts = runtime.run_signals(SignalInput::Candle(snapshot(Interval::M5, 100.5, true)));
 
@@ -128,7 +133,13 @@ fn indicator_rules_skip_eval_until_bar_close() {
     runtime
         .candle_store
         .set_last_seen(key.clone(), candle(4 * M5_INTERVAL_MS, 150.0, 100.0, 150.0));
-    runtime.load_default_indicator_rules(&[key]);
+    runtime.indicator_rule_service_mut().subscribe(
+        key,
+        IndicatorRuleKind::Atr(AtrRule {
+            breakout_ratio: 2.5,
+            debug_ratio: 0.8,
+        }),
+    );
 
     let alerts = runtime.run_signals(SignalInput::Candle(snapshot(Interval::M5, 150.0, false)));
 
