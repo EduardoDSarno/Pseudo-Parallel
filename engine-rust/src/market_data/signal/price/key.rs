@@ -1,6 +1,8 @@
+use serde::Serialize;
+
 use crate::market_data::{constans::PRICE_SCALE, types::Coins};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 pub enum ManualPriceDirection {
     Above,
     Below,

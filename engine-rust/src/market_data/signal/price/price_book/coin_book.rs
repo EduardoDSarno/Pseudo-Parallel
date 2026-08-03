@@ -26,13 +26,6 @@ impl CoinPriceBook {
         }
     }
 
-    fn get_map_ref(&self, direction: ManualPriceDirection) -> &BTreeMap<PriceKey, PriceLevelEntry> {
-        match direction {
-            ManualPriceDirection::Above => &self.above_map,
-            ManualPriceDirection::Below => &self.below_map,
-        }
-    }
-
     /* If there's a entry increment subscribers otherwise add the entry */
     pub fn insert_level(
         &mut self,
@@ -72,14 +65,6 @@ impl CoinPriceBook {
         direction: ManualPriceDirection,
     ) -> Option<PriceLevelEntry> {
         self.get_map_mut(direction).remove(&price_key)
-    }
-
-    pub fn get_level(
-        &self,
-        price_key: PriceKey,
-        direction: ManualPriceDirection,
-    ) -> Option<&PriceLevelEntry> {
-        self.get_map_ref(direction).get(&price_key)
     }
 
     /* This fucntion returns a empty vec if none found otherwise it will return a vec with the prices crossed abvoe */

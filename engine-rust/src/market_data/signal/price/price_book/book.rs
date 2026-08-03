@@ -55,36 +55,6 @@ impl PriceBook {
             .and_then(|book| book.delete_level(price_key, direction))
     }
 
-    pub fn get(
-        &self,
-        coin: Coins,
-        price_key: PriceKey,
-        direction: ManualPriceDirection,
-    ) -> Option<&PriceLevelEntry> {
-        self.by_coin
-            .get(&coin)
-            .and_then(|book| book.get_level(price_key, direction))
-    }
-
-    pub fn contains(
-        &self,
-        coin: Coins,
-        price_key: PriceKey,
-        direction: ManualPriceDirection,
-    ) -> bool {
-        self.get(coin, price_key, direction).is_some()
-    }
-
-    pub fn subscriber_count(
-        &self,
-        coin: Coins,
-        price_key: PriceKey,
-        direction: ManualPriceDirection,
-    ) -> Option<usize> {
-        self.get(coin, price_key, direction)
-            .map(|entry| entry.subscriber_count())
-    }
-
     /* levels corssed per coin */
     pub fn levels_crossed_above(
         &self,

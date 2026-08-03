@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use crate::market_data::{
     signal::price::{
         key::{LevelKey, ManualPriceDirection, PriceKey},
@@ -17,6 +15,15 @@ pub struct ManualPriceAlert {
     pub coin: Coins,
     pub trigger_price: f64,
     pub direction: ManualPriceDirection,
+}
+
+/* Alert emitted after the live price crosses one armed price level */
+#[derive(Debug, Clone)]
+pub struct TriggeredPriceAlert {
+    pub coin: Coins,
+    pub trigger_price: f64,
+    pub direction: ManualPriceDirection,
+    pub current_price: f64,
 }
 
 impl ManualPriceAlert {

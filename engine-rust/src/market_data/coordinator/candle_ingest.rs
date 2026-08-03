@@ -5,9 +5,8 @@ use crate::market_data::{
 
 pub struct IngestedCandleSnapshot {
     pub candle_key: CandleKey,
-    pub close_price: f64,
-    /// True when this ingest pushed a newly closed bar into the closed buffer.
-    pub bar_just_closed: bool,
+    pub previous_price: Option<f64>,
+    pub current_price: f64,
 }
 
 /* This function has the job of updating the candle store, it builds a candle key
@@ -15,7 +14,9 @@ If the previous candle for that key closed → push it into the closed-candle bu
  Store this candle as last seen for that key. */
 pub fn apply_candle(engine: &mut CandleStore, candle: Candle) -> IngestedCandleSnapshot {
     let candle_key = CandleKey::create_key_from_candle(&candle);
-    let mut bar_just_closed = false;
+    let previous_price = engine
+        .last_seen(&candle_key)
+        .map(|previous| previous.close_price);
 
     if let Some(last) = engine.last_seen(&candle_key) {
         if last.open_time_ms != candle.open_time_ms {
@@ -34,7 +35,6 @@ pub fn apply_candle(engine: &mut CandleStore, candle: Candle) -> IngestedCandleS
                     "Candle closed and added to buffer"
                 );
                 engine.push_closed_candle(candle_key.clone(), closed);
-                bar_just_closed = true;
             }
         }
     }
@@ -43,7 +43,7 @@ pub fn apply_candle(engine: &mut CandleStore, candle: Candle) -> IngestedCandleS
 
     IngestedCandleSnapshot {
         candle_key,
-        close_price: candle.close_price,
-        bar_just_closed,
+        previous_price,
+        current_price: candle.close_price,
     }
 }

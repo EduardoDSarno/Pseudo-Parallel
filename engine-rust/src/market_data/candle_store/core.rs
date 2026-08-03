@@ -19,7 +19,7 @@ impl CandleStore {
         }
     }
 
-    /* helpers to keep candle store private for rest application, just pub for the mod */
+    /* Read the latest live candle or bounded closed history */
     pub fn last_seen(&self, candle_key: &CandleKey) -> Option<&Candle> {
         self.last_seen.get(candle_key)
     }

@@ -1,47 +1,35 @@
-use crate::market_data::signal::event::{Alert, Event};
+use tokio::sync::mpsc;
 
-/* Currenlty we are just loggin the alerts in the future we will be dispatchign to a stream */
-pub fn log_alerts(alerts: &[Alert]) {
+use crate::{
+    market_data::signal::price::alert::TriggeredPriceAlert,
+    redis_transport::outgoing::OutgoingManualPriceAlert,
+};
+
+/* publisher is None when no redis publisher has been wired up (e.g. in tests) —
+alerts are still evaluated, just not sent anywhere. */
+pub fn dispatch_alerts(
+    alerts: &[TriggeredPriceAlert],
+    publisher: Option<&mpsc::UnboundedSender<String>>,
+) {
     for alert in alerts {
-        match &alert.event {
-            Event::AtrBreakout {
-                indicator_rule_id,
-                atr,
-                live_tr,
-                ratio,
-                spike_level,
-                open_time_ms,
-            } => {
-                let key = alert
-                    .key
-                    .as_ref()
-                    .expect("ATR alerts always carry a candle key");
-                tracing::info!(
-                    coin = ?alert.coin,
-                    indicator_rule_id = indicator_rule_id.0,
-                    interval = ?key.interval,
-                    open_time = open_time_ms,
-                    atr = atr,
-                    live_tr = live_tr,
-                    ratio = ratio,
-                    spike_level = spike_level,
-                    "ATR breakout detected"
-                );
+        let outgoing_alert = OutgoingManualPriceAlert::new(
+            alert.coin,
+            alert.trigger_price,
+            alert.direction,
+            alert.current_price,
+        );
+
+        let message = match outgoing_alert.convert() {
+            Ok(message) => message,
+            Err(err) => {
+                tracing::error!(error = ?err, "Failed to serialize outgoing manual price alert");
+                continue;
             }
-            Event::ManualPriceTriggered {
-                trigger_price,
-                direction,
-                previous_price,
-                current_price,
-            } => {
-                tracing::info!(
-                    coin = ?alert.coin,
-                    trigger_price = trigger_price,
-                    direction = ?direction,
-                    previous_price = previous_price,
-                    current_price = current_price,
-                    "Manual price alert triggered"
-                );
+        };
+
+        if let Some(sender) = publisher {
+            if let Err(err) = sender.send(message) {
+                tracing::error!(error = %err, "failed to send alert to publisher channel");
             }
         }
     }

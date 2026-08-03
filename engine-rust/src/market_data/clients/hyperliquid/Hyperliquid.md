@@ -45,8 +45,8 @@ candle structure. It is just the shape of the data exactly as Hyperliquid sends 
 
 ## WebSocket Flow
 
-The main flow starts from `main`, which passes the same `candle_keys` used for REST seed into
-`coordinator::run_live` along with the signal-subscription `mpsc` receiver.
+The main flow starts from `main`, which passes the configured M5 candle key into
+`coordinator::run_live` along with the alert-subscription `mpsc` receiver.
 
 The coordinator live loop then:
 
@@ -69,13 +69,13 @@ main.rs (candle_keys, subscription_rx)
 
 ## Reconnect and stream health
 
-**Connection drop** — we use one WebSocket for all candle streams. If it drops, the coordinator live loop reconnects with
-backoff and resends candle subscriptions. In-memory engine state is kept; we do not REST re-seed on reconnect in v1.
+**Connection drop** — if the WebSocket drops, the coordinator reconnects with backoff
+and resends the M5 candle subscription. In-memory candle and alert state is kept.
 
 **Per-stream silence** — the connection can stay up while one interval stops sending candles. `stream_health` warns once
 per key if there is no candle for about twice that interval’s length in milliseconds.
 
-**Not in v1** — resubscribing only one stale interval while the socket stays open; automatic REST re-seed after reconnect.
+**Not in v1** — resubscribing a stale stream while the socket stays open.
 
 ## Outbound Messages
 
@@ -172,8 +172,7 @@ The Hyperliquid module should care about:
 The Hyperliquid module should not care too much about:
 
 - How the engine stores candles.
-- How indicators are calculated.
-- How breakout signals are evaluated.
+- How application signals are evaluated.
 
 `hl_client.rs` returns `MarketUpdate` from decode and does not touch `MarketDataRuntime`. The coordinator applies updates.
 If we add another market data source, add a similar decode helper and extend the live loop `select!`.
@@ -192,7 +191,3 @@ To add a new Hyperliquid stream, the flow will probably be:
 5. Add the event handling that sends it into the correct part of the engine.
 
 For now, candles are the only complete flow from Hyperliquid all the way into the engine.
-
-## UPDATES
-Additon on may 14, 2026
-We Have added the the hl_rest_client file which is resposible for fetching the data for the CandleStore from the 14 previous candles so we don't have to use the warmup anymore

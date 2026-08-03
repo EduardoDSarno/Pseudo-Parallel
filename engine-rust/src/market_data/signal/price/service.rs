@@ -2,7 +2,7 @@ use std::error::Error;
 
 use crate::market_data::{
     signal::price::{
-        alert::{AlertKey, ManualPriceAlert},
+        alert::{AlertKey, ManualPriceAlert, TriggeredPriceAlert},
         key::ManualPriceDirection,
         price_book::{entry::PriceLevelEntry, PriceBook},
     },
@@ -48,68 +48,45 @@ impl PriceAlertService {
         ))
     }
 
-    /* This function will delete the whole level of alerts in pricebooks  */
-    pub fn disarm_level_on_trigger(&mut self, key: AlertKey) -> Option<PriceLevelEntry> {
-        let removed = self
-            .book
-            .delete_level(key.coin, key.price_key, key.direction);
-
-        if removed.is_some() {
-            tracing::debug!(?key, coin = ?key.coin, "price level disarmed after trigger");
-        }
-
-        removed
-    }
-
-    pub fn disarm_levels(&mut self, keys: impl IntoIterator<Item = AlertKey>) {
-        for key in keys {
-            self.disarm_level_on_trigger(key);
-        }
-    }
-
-    pub fn get(&self, key: &AlertKey) -> Option<ManualPriceAlert> {
-        self.book
-            .get(key.coin, key.price_key, key.direction)
-            .map(|entry| ManualPriceAlert::from_level(key.coin, key.direction, entry))
-    }
-
-    pub fn contains(&self, key: &AlertKey) -> bool {
-        self.book.contains(key.coin, key.price_key, key.direction)
-    }
-
-    pub fn subscriber_count(&self, key: &AlertKey) -> Option<usize> {
-        self.book
-            .subscriber_count(key.coin, key.price_key, key.direction)
-    }
-
-    /* Return levels crossed above per coin */
-    pub fn crossed_above(
-        &self,
+    /* Return crossed levels and remove them from the active book in one operation */
+    pub fn take_crossed(
+        &mut self,
         coin: Coins,
         previous_price: f64,
         current_price: f64,
-    ) -> Vec<ManualPriceAlert> {
-        self.book
-            .levels_crossed_above(coin, previous_price, current_price)
-            .into_iter()
-            .map(|(_, entry)| {
-                ManualPriceAlert::from_level(coin, ManualPriceDirection::Above, entry)
-            })
-            .collect()
-    }
+    ) -> Vec<TriggeredPriceAlert> {
+        let direction = if current_price > previous_price {
+            ManualPriceDirection::Above
+        } else if current_price < previous_price {
+            ManualPriceDirection::Below
+        } else {
+            return Vec::new();
+        };
 
-    /* Return levels crossed below per coin */
-    pub fn crossed_below(
-        &self,
-        coin: Coins,
-        previous_price: f64,
-        current_price: f64,
-    ) -> Vec<ManualPriceAlert> {
-        self.book
-            .levels_crossed_below(coin, previous_price, current_price)
+        let crossed = match direction {
+            ManualPriceDirection::Above => {
+                self.book
+                    .levels_crossed_above(coin, previous_price, current_price)
+            }
+            ManualPriceDirection::Below => {
+                self.book
+                    .levels_crossed_below(coin, previous_price, current_price)
+            }
+        }
+        .into_iter()
+        .map(|(price_key, entry)| (price_key, entry.trigger_price))
+        .collect::<Vec<_>>();
+
+        crossed
             .into_iter()
-            .map(|(_, entry)| {
-                ManualPriceAlert::from_level(coin, ManualPriceDirection::Below, entry)
+            .map(|(price_key, trigger_price)| {
+                self.book.delete_level(coin, price_key, direction);
+                TriggeredPriceAlert {
+                    coin,
+                    trigger_price,
+                    direction,
+                    current_price,
+                }
             })
             .collect()
     }

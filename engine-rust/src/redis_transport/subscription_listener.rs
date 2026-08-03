@@ -1,18 +1,19 @@
 use futures_util::StreamExt;
 use tokio::sync::mpsc;
 
-use crate::market_data::alert_subscriptions::{
-    command::SubscriptionManager, convert::to_subscription_manager, incoming::IncomingSubscription,
+use crate::{
+    market_data::alert_subscriptions::command::SubscriptionManager,
+    redis_transport::{convert::to_subscription_manager, incoming::IncomingSubscription},
 };
 
 /* Redis side of the subscription pipe — TS backend PUBLISHes JSON here,
 we SUBSCRIBE, parse it, and forward to the mpsc channel that run_live reads. */
-pub struct RedisSubscriptionStream {
+pub struct RedisSubscriptionListener {
     redis_client: redis::Client, // connection to redis server (localhost in dev)
     subscription_sender: mpsc::Sender<SubscriptionManager>, // sender end — live_loop owns the receiver
 }
 
-impl RedisSubscriptionStream {
+impl RedisSubscriptionListener {
     /* Build the stream listener — main passes the mpsc sender from the channel it created with run_live */
     pub fn new(
         address: impl Into<String>,
@@ -78,4 +79,3 @@ impl RedisSubscriptionStream {
         }
     }
 }
-

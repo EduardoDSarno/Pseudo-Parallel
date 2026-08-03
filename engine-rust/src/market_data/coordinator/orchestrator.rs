@@ -1,6 +1,6 @@
 use crate::market_data::{
     alert_subscriptions::apply::apply_subscription,
-    coordinator::{dispatch, market_update::MarketUpdate, signal_input::SignalInput},
+    coordinator::{dispatch, market_update::MarketUpdate},
     runtime::MarketDataRuntime,
 };
 
@@ -21,21 +21,28 @@ impl MarketDataRuntime {
                 let snapshot = super::candle_ingest::apply_candle(&mut self.candle_store, candle);
                 tracing::debug!(
                     coin = ?snapshot.candle_key.coin,
-                    close = snapshot.close_price,
+                    close = snapshot.current_price,
                     ?snapshot.candle_key,
                     "orchestrator: candle store ingest complete"
                 );
 
-                // running singnals (currenlty just for candle)
                 let coin = snapshot.candle_key.coin;
-                let alerts = self.run_signals(SignalInput::Candle(snapshot));
+                let alerts = snapshot
+                    .previous_price
+                    .map(|previous_price| {
+                        self.alert_service_mut().take_crossed(
+                            coin,
+                            previous_price,
+                            snapshot.current_price,
+                        )
+                    })
+                    .unwrap_or_default();
                 tracing::debug!(
                     coin = ?coin,
                     alert_count = alerts.len(),
                     "orchestrator: signal evaluation complete"
                 );
 
-                // logging alerts in the future steam will be added
                 if alerts.is_empty() {
                     tracing::trace!(coin = ?coin, "orchestrator: no alerts to dispatch");
                 } else {
@@ -44,7 +51,7 @@ impl MarketDataRuntime {
                         alert_count = alerts.len(),
                         "orchestrator: dispatching alerts"
                     );
-                    dispatch::log_alerts(&alerts);
+                    dispatch::dispatch_alerts(&alerts, self.alert_publisher.as_ref());
                 }
             }
             // if the update is subscription apply it to the books

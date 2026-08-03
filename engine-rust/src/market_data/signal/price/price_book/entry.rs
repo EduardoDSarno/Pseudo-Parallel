@@ -23,8 +23,4 @@ impl PriceLevelEntry {
         self.subscriber_count -= 1;
         self.subscriber_count == 0
     }
-
-    pub fn subscriber_count(&self) -> usize {
-        self.subscriber_count
-    }
 }

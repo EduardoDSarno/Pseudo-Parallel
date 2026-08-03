@@ -12,11 +12,7 @@ impl Default for MarketDataConfig {
     fn default() -> Self {
         MarketDataConfig {
             max_closed_candles: DEFAULT_MAX_CLOSED_CANDLES,
-            candle_keys: vec![
-                CandleKey::new(Coins::HYPE, Interval::M5),
-                CandleKey::new(Coins::HYPE, Interval::M15),
-                CandleKey::new(Coins::HYPE, Interval::H1),
-            ],
+            candle_keys: vec![CandleKey::new(Coins::HYPE, Interval::M5)],
         }
     }
 }
