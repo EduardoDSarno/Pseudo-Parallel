@@ -55,7 +55,9 @@ pub async fn run_live(
         } = session;
 
         let mut consecutive_message_errors = 0; // counter for errors
-        loop {
+        let mut subscription_channel_closed = false;
+        loop 
+        {
             /* This is reached just when connection is successefull */
             tokio::select! {
                 // this stream reads next message decodes into an action (cotinue, reconnect etc)
@@ -91,15 +93,21 @@ pub async fn run_live(
                 _ = health_tick.tick() => {
                     health.check_stale();
                 }
-                // That arm waits on the receiver side of the mpsc channel from main
-                // if some menager a subscription was sent
-                sub = subscription_receiver.recv() =>
-                {
+
+                
+                /*  That arm waits on the receiver side of the mpsc channel from main
+                 if some manager a subscription was sent. It uses a preprocesssor if statement
+                 to check for valid channel flag.*/
+                sub = subscription_receiver.recv(), if !subscription_channel_closed => {
                     match sub {
                         Some(manager) => {
                             runtime.process(MarketUpdate::Subscription(manager));
                         }
-                        None => tracing::warn!("subscription channel closed"),
+                        None => 
+                        {
+                            tracing::warn!("subscription channel closed");
+                            subscription_channel_closed = true;
+                        }
                     }
                 }
             }
