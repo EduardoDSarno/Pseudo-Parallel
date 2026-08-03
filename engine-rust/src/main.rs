@@ -10,7 +10,7 @@ use crate::{
     redis_transport::{
         alert_publisher::spawn_alert_publisher,
         constants::{ALERTS_FIRED_CHANNEL, REDIS_ADDRESS, SUBSCRIPTION_CHANNEL},
-        subscription_listener::RedisSubscriptionListener,
+        subscription_listener::run_with_reconnect,
     },
 };
 
@@ -41,17 +41,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let (subscription_sender, subscription_receiver) =
         mpsc::channel::<SubscriptionManager>(BUFFER_SIZE_FOR_MPSC);
 
-    // background task: SUBSCRIBE alert_subscriptions, parse JSON, forward on sender
-    let subscription_listener = RedisSubscriptionListener::new(REDIS_ADDRESS, subscription_sender)?;
-
-    tokio::spawn(async move {
-        if let Err(err) = subscription_listener
-            .bind_to_stream(SUBSCRIPTION_CHANNEL)
-            .await
-        {
-            tracing::error!(error = %err, "redis subscription listener stopped");
-        }
-    });
+    // background task: SUBSCRIBE alert_subscriptions, parse JSON, forward on sender.
+    // Reconnects with backoff on connection/stream drops instead of stopping permanently.
+    tokio::spawn(run_with_reconnect(
+        REDIS_ADDRESS.to_string(),
+        SUBSCRIPTION_CHANNEL.to_string(),
+        subscription_sender,
+    ));
 
     // background task: PUBLISH fired alerts to alerts_fired for the TS backend to consume
     let alert_publisher = spawn_alert_publisher(REDIS_ADDRESS, ALERTS_FIRED_CHANNEL).await?;

@@ -1,9 +1,17 @@
+use std::time::Duration;
+
 use futures_util::StreamExt;
 use tokio::sync::mpsc;
 
 use crate::{
     market_data::alert_subscriptions::command::SubscriptionManager,
-    redis_transport::{convert::to_subscription_manager, incoming::IncomingSubscription},
+    redis_transport::{
+        constants::{
+            REDIS_RECONNECT_BACKOFF_MULTIPLIER, REDIS_RECONNECT_INITIAL_MS, REDIS_RECONNECT_MAX_MS,
+        },
+        convert::to_subscription_manager,
+        incoming::IncomingSubscription,
+    },
 };
 
 /* Redis side of the subscription pipe — TS backend PUBLISHes JSON here,
@@ -78,4 +86,46 @@ impl RedisSubscriptionListener {
             tracing::warn!(error = %err, "mpsc send failed");
         }
     }
+}
+
+/* Keeps subscription delivery alive across redis drops — bind_to_stream only ever
+returns when the connection/stream ends, so each time it does, this rebuilds a fresh
+listener (new client, new pubsub connection) and retries with exponential backoff
+instead of letting the caller's task end permanently. */
+pub async fn run_with_reconnect(
+    address: String,
+    channel: String,
+    subscription_sender: mpsc::Sender<SubscriptionManager>,
+) {
+    let mut backoff = Duration::from_millis(REDIS_RECONNECT_INITIAL_MS);
+
+    loop {
+        let listener =
+            match RedisSubscriptionListener::new(address.clone(), subscription_sender.clone()) {
+                Ok(listener) => listener, // happy path — we have a listener
+                Err(err) => {
+                    tracing::error!(error = %err, "failed to open redis subscription connection, retrying");
+                    tokio::time::sleep(backoff).await;
+                    backoff = next_backoff(backoff);
+                    continue;
+                }
+            };
+
+        // calls bind_to_stream, which only returns when the connection/stream ends
+        match listener.bind_to_stream(&channel).await {
+            Ok(()) => tracing::warn!("redis subscription stream ended, reconnecting"),
+            Err(err) => {
+                tracing::error!(error = %err, "redis subscription listener stopped, reconnecting")
+            }
+        }
+
+        tokio::time::sleep(backoff).await;
+        backoff = next_backoff(backoff);
+    }
+}
+
+fn next_backoff(current: Duration) -> Duration {
+    let doubled = current.saturating_mul(REDIS_RECONNECT_BACKOFF_MULTIPLIER);
+    let max = Duration::from_millis(REDIS_RECONNECT_MAX_MS);
+    doubled.min(max)
 }
