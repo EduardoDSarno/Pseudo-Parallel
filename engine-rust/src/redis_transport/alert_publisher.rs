@@ -1,8 +1,12 @@
 use redis::AsyncCommands;
 use tokio::sync::mpsc;
 
+use crate::market_data::constans::BUFFER_SIZE_FOR_MPSC;
+
 /* Redis side of the outgoing alert pipe — dispatch_alerts pushes JSON strings
-onto an unbounded channel; this task publishes each one for the TS backend. */
+onto a bounded channel; this task publishes each one for the TS backend. If this
+task falls behind (redis slow/down), dispatch_alerts drops new alerts rather than
+letting the queue grow without limit. */
 pub struct RedisAlertPublisher {
     connection: redis::aio::MultiplexedConnection,
     channel: String,
@@ -23,7 +27,7 @@ impl RedisAlertPublisher {
 
     /* Drains the receiver forever, publishing each message. Bad publishes are logged
     and skipped — one failed alert shouldn't stop the rest from going out. */
-    async fn run(mut self, mut receiver: mpsc::UnboundedReceiver<String>) {
+    async fn run(mut self, mut receiver: mpsc::Receiver<String>) {
         while let Some(message) = receiver.recv().await {
             if let Err(err) = self
                 .connection
@@ -42,9 +46,9 @@ impl RedisAlertPublisher {
 pub async fn spawn_alert_publisher(
     address: impl Into<String>,
     channel: impl Into<String>,
-) -> Result<mpsc::UnboundedSender<String>, redis::RedisError> {
+) -> Result<mpsc::Sender<String>, redis::RedisError> {
     let publisher = RedisAlertPublisher::new(address, channel).await?;
-    let (sender, receiver) = mpsc::unbounded_channel();
+    let (sender, receiver) = mpsc::channel(BUFFER_SIZE_FOR_MPSC);
 
     tokio::spawn(publisher.run(receiver));
 

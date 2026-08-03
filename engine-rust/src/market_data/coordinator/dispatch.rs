@@ -9,7 +9,7 @@ use crate::{
 alerts are still evaluated, just not sent anywhere. */
 pub fn dispatch_alerts(
     alerts: &[TriggeredPriceAlert],
-    publisher: Option<&mpsc::UnboundedSender<String>>,
+    publisher: Option<&mpsc::Sender<String>>,
 ) {
     for alert in alerts {
         let outgoing_alert = OutgoingManualPriceAlert::new(
@@ -27,9 +27,12 @@ pub fn dispatch_alerts(
             }
         };
 
+        // try_send is non-blocking — dispatch_alerts is sync and can't await a full
+        // channel. A full channel means the publisher is falling behind (redis slow/
+        // down); we drop this alert and log rather than piling up unbounded memory.
         if let Some(sender) = publisher {
-            if let Err(err) = sender.send(message) {
-                tracing::error!(error = %err, "failed to send alert to publisher channel");
+            if let Err(err) = sender.try_send(message) {
+                tracing::error!(error = %err, "failed to send alert to publisher channel, dropping alert");
             }
         }
     }

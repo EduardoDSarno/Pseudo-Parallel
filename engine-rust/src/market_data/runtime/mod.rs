@@ -22,7 +22,7 @@ pub struct MarketDataRuntime {
     alert_service: PriceAlertService,
     /* None until main wires up the redis publisher — dispatch_alerts skips publishing
     when this is unset (e.g. in tests that don't need a live redis connection). */
-    pub(crate) alert_publisher: Option<mpsc::UnboundedSender<String>>,
+    pub(crate) alert_publisher: Option<mpsc::Sender<String>>,
 }
 
 impl MarketDataRuntime {
@@ -36,7 +36,7 @@ impl MarketDataRuntime {
 
     /* Wires the redis alert publisher sender in after construction — main calls this
     once spawn_alert_publisher has set up the background task. */
-    pub fn set_alert_publisher(&mut self, sender: mpsc::UnboundedSender<String>) {
+    pub fn set_alert_publisher(&mut self, sender: mpsc::Sender<String>) {
         self.alert_publisher = Some(sender);
     }
 
