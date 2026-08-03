@@ -1,13 +1,11 @@
 import { Command } from "./redis_constants.js";
 import type {
-  IncomingIndicatorSubscription,
   IncomingPriceSubscription,
   IncomingSubscription,
   IncomingSubscriptionType,
-} from "./subscription_types.js";
+} from "./subscription_types/incoming.js";
 
-/* Wraps a sub_type with command subscribe — caller only passes price or indicator
-   payload; we set Command.Subscribe here so it stays in one place */
+/* Wraps a sub_type with command subscribe and keeps the command in one place */
 export function subscribeMessage(
   sub_type: IncomingSubscriptionType,
 ): IncomingSubscription {
@@ -27,11 +25,4 @@ export function priceSubType(
   sub_type: Omit<IncomingPriceSubscription, "type">,
 ): IncomingPriceSubscription {
   return { type: "price", ...sub_type };
-}
-
-/* Builds an indicator sub_type tagged union arm helper to ommit type */
-export function indicatorSubType(
-  sub_type: Omit<IncomingIndicatorSubscription, "type">,
-): IncomingIndicatorSubscription {
-  return { type: "indicator", ...sub_type };
 }

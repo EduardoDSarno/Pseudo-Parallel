@@ -7,7 +7,7 @@ import {
 import type {
   IncomingSubscription,
   IncomingSubscriptionType,
-} from "./subscription_types.js";
+} from "./subscription_types/incoming.js";
 
 /* This function we got we will or incoming subscription that is mapped inside 
     subscription types and match a specfic subscription, it stringfy's it and

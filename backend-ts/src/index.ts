@@ -1,9 +1,16 @@
 import { publishSubscribe } from "./redis/publishSubscription.js";
 import { redis_alert_client } from "./redis/redis.js";
 import { priceSubType } from "./redis/subscription_builders.js";
-import { Coin } from "./redis/subscription_types.js";
+import { Coin } from "./redis/subscription_types/common.js";
+import { subscribeAlerts } from "./redis/subscribeAlerts.js";
 
 async function main(): Promise<void> {
+  // Subscribe to alerts and log them
+  await subscribeAlerts((alert) =>
+  {
+      console.log("Alert received:", alert);
+  });
+
   if (process.env.SUBSCRIPTION_SMOKE !== "1") {
     console.log("Backend started. Set SUBSCRIPTION_SMOKE=1 to publish a test subscription.");
     return;
@@ -16,7 +23,6 @@ async function main(): Promise<void> {
       trigger_price: 70,
     }),
   );
-
   console.log(`Subscription smoke published to ${subscriberCount} Redis subscriber(s).`);
 }
 
@@ -25,6 +31,6 @@ main()
     console.error("Subscription smoke failed", err);
     process.exitCode = 1;
   })
-  .finally(() => {
+  .finally(() => { // alawys disconnect the redis client to avoid hanging the process
     redis_alert_client.disconnect();
   });

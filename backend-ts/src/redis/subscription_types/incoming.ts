@@ -1,18 +1,7 @@
 import type { SubscriptionCommand } from "../redis_constants.js";
-import type { Coin, Interval, PriceDirection } from "./common.js";
+import type { Coin, PriceDirection } from "./common.js";
 
-export type { Coin, Interval, PriceDirection } from "./common.js";
-
-/* --- nested structs --- */
-
-export type IncomingAtrRule = {
-  type: "atr";
-  breakout_ratio: number;
-  debug_ratio: number;
-};
-
-/* tagged union — mirrors Rust IncomingIndicatorKind; add arms when we add indicators */
-export type IncomingIndicatorKind = IncomingAtrRule;
+export type { Coin, PriceDirection } from "./common.js";
 
 export type IncomingPriceSubscription = {
   type: "price";
@@ -21,17 +10,8 @@ export type IncomingPriceSubscription = {
   direction?: PriceDirection; // optional; engine infers
 };
 
-export type IncomingIndicatorSubscription = {
-  type: "indicator";
-  coin: Coin;
-  interval: Interval;
-  kind: IncomingIndicatorKind;
-};
-
-/* tagged union for subscription types */
-export type IncomingSubscriptionType =
-  | IncomingPriceSubscription
-  | IncomingIndicatorSubscription;
+/* Keep the alias so more subscription types can be added without changing callers. */
+export type IncomingSubscriptionType = IncomingPriceSubscription;
 
 /* top-level message — like Rust IncomingSubscription */
 export type IncomingSubscription = {
