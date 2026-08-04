@@ -94,3 +94,62 @@ fn movement_without_crossing_returns_no_alerts() {
     assert!(service.take_crossed(Coins::HYPE, 39.0, 41.0).is_empty());
     assert!(service.take_crossed(Coins::HYPE, 41.0, 41.0).is_empty());
 }
+
+#[test]
+fn active_alerts_for_coin_is_empty_when_none_subscribed() {
+    let service = PriceAlertService::new();
+    assert!(service.active_alerts_for_coin(Coins::HYPE).is_empty());
+}
+
+#[test]
+fn active_alerts_for_coin_lists_current_subscriptions() {
+    let mut service = PriceAlertService::new();
+    service
+        .subscribe(alert(ManualPriceDirection::Above))
+        .unwrap();
+    service
+        .subscribe(ManualPriceAlert::new(Coins::HYPE, 50.0, ManualPriceDirection::Below))
+        .unwrap();
+
+    let mut active = service.active_alerts_for_coin(Coins::HYPE);
+    active.sort_by(|a, b| a.trigger_price.partial_cmp(&b.trigger_price).unwrap());
+
+    assert_eq!(active.len(), 2);
+    assert_eq!(active[0].trigger_price, TEST_TRIGGER_PRICE);
+    assert_eq!(active[0].direction, ManualPriceDirection::Above);
+    assert_eq!(active[1].trigger_price, 50.0);
+    assert_eq!(active[1].direction, ManualPriceDirection::Below);
+}
+
+#[test]
+fn unsubscribing_removes_alert_from_active_list() {
+    let mut service = PriceAlertService::new();
+    let key = service
+        .subscribe(alert(ManualPriceDirection::Above))
+        .unwrap();
+
+    service.unsubscribe(key).unwrap();
+
+    assert!(service.active_alerts_for_coin(Coins::HYPE).is_empty());
+}
+
+#[test]
+fn all_active_alerts_groups_by_coin() {
+    let mut service = PriceAlertService::new();
+    service
+        .subscribe(alert(ManualPriceDirection::Above))
+        .unwrap();
+    service
+        .subscribe(ManualPriceAlert::new(
+            Coins::BTC,
+            60_000.0,
+            ManualPriceDirection::Above,
+        ))
+        .unwrap();
+
+    let all = service.all_active_alerts();
+
+    assert_eq!(all.get(&Coins::HYPE).map(Vec::len), Some(1));
+    assert_eq!(all.get(&Coins::BTC).map(Vec::len), Some(1));
+    assert!(!all.contains_key(&Coins::ETH));
+}
