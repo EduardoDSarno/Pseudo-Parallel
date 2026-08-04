@@ -1,6 +1,6 @@
 const SUBSCRIPTION_CHANNEL = "alert_subscriptions";
 const ALERTS_FIRED_CHANNEL = "alerts_fired";
-const REDIS_HOST = "localhost";
+const REDIS_HOST = "127.0.0.1";
 const REDIS_PORT = 6379;
 
 export const Command = {
