@@ -1,0 +1,14 @@
+[package]
+name = "Pseudo-Parallel"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+futures = "0.3.33"
+hypersdk = "0.2"
+log = "0.4.33"
+ordered-float = "5.3.0"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+simple_logger = "5.2.0"
+tokio = { version = "1.53.1", features = ["full"] }
