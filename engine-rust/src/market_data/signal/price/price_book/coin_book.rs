@@ -92,6 +92,20 @@ impl CoinPriceBook {
             .collect()
     }
 
+    /* All currently active levels in this coin's book, both directions — for
+    inspection/lookup, not used by the crossing-check path. */
+    pub fn active_levels(&self) -> Vec<(ManualPriceDirection, PriceKey, &PriceLevelEntry)> {
+        self.above_map
+            .iter()
+            .map(|(price_key, entry)| (ManualPriceDirection::Above, *price_key, entry))
+            .chain(
+                self.below_map
+                    .iter()
+                    .map(|(price_key, entry)| (ManualPriceDirection::Below, *price_key, entry)),
+            )
+            .collect()
+    }
+
     /* This fucntion returns a empty vec if none found otherwise it will return a vec with the prices crossed below */
     pub fn levels_crossed_below(
         &self,

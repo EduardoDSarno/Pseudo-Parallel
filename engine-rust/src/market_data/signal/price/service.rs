@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::error::Error;
 
 use crate::market_data::{
@@ -46,6 +47,33 @@ impl PriceAlertService {
             key.direction,
             &entry,
         ))
+    }
+
+    /* Active alerts for one coin, as user-facing values — for lookup/debugging,
+    not used by the crossing-check path. */
+    pub fn active_alerts_for_coin(&self, coin: Coins) -> Vec<ManualPriceAlert> {
+        self.book
+            .active_levels_for_coin(coin)
+            .into_iter()
+            .map(|(direction, _price_key, entry)| ManualPriceAlert::from_level(coin, direction, entry))
+            .collect()
+    }
+
+    /* Every active alert, grouped by coin. */
+    pub fn all_active_alerts(&self) -> HashMap<Coins, Vec<ManualPriceAlert>> {
+        self.book
+            .active_levels()
+            .into_iter()
+            .map(|(coin, levels)| {
+                let alerts = levels
+                    .into_iter()
+                    .map(|(direction, _price_key, entry)| {
+                        ManualPriceAlert::from_level(coin, direction, entry)
+                    })
+                    .collect();
+                (coin, alerts)
+            })
+            .collect()
     }
 
     /* Return crossed levels and remove them from the active book in one operation */

@@ -45,6 +45,11 @@ impl MarketDataRuntime {
         &mut self.alert_service
     }
 
+    /* Read-only access for lookup/logging (e.g. active_alerts_for_coin) */
+    pub fn alert_service(&self) -> &PriceAlertService {
+        &self.alert_service
+    }
+
     #[cfg(test)]
     pub fn load_signal_subscriptions(
         &mut self,

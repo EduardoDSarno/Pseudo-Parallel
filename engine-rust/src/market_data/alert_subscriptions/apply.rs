@@ -48,7 +48,16 @@ pub fn apply_subscription(
                 })?;
         }
     }
+
+    log_active_alerts(runtime);
     Ok(())
+}
+
+/* Logs the full active-alert book, grouped by coin, so it's visible in the running
+process every time a subscription is added or removed. */
+fn log_active_alerts(runtime: &MarketDataRuntime) {
+    let alerts_by_coin = runtime.alert_service().all_active_alerts();
+    tracing::info!(?alerts_by_coin, "current active alerts");
 }
 
 fn resolve_price_alert(

@@ -80,6 +80,25 @@ impl PriceBook {
             .unwrap_or_default()
     }
 
+    /* Active levels for one coin — empty if nothing is subscribed for it. */
+    pub fn active_levels_for_coin(
+        &self,
+        coin: Coins,
+    ) -> Vec<(ManualPriceDirection, PriceKey, &PriceLevelEntry)> {
+        self.by_coin
+            .get(&coin)
+            .map(|book| book.active_levels())
+            .unwrap_or_default()
+    }
+
+    /* Active levels across every coin that has at least one, grouped by coin. */
+    pub fn active_levels(&self) -> HashMap<Coins, Vec<(ManualPriceDirection, PriceKey, &PriceLevelEntry)>> {
+        self.by_coin
+            .iter()
+            .map(|(coin, book)| (*coin, book.active_levels()))
+            .collect()
+    }
+
     fn coin_book_mut(&mut self, coin: Coins) -> &mut CoinPriceBook {
         self.by_coin.entry(coin).or_default()
     }
