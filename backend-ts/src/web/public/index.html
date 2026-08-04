@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Price Alerts</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    font-family: system-ui, sans-serif;
+    max-width: 640px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+  }
+  h1 { font-size: 1.4rem; }
+  form {
+    display: flex;
+    gap: 0.5rem;
+    align-items: end;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+    border-radius: 8px;
+  }
+  form label { display: flex; flex-direction: column; font-size: 0.8rem; gap: 0.25rem; }
+  form select, form input, form button { padding: 0.4rem; font-size: 1rem; }
+  .tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+  .tabs button {
+    padding: 0.4rem 0.8rem;
+    border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+    border-radius: 999px;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+  }
+  .tabs button[aria-pressed="true"] { background: color-mix(in srgb, currentColor 15%, transparent); }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid color-mix(in srgb, currentColor 12%, transparent); }
+  .empty { opacity: 0.6; padding: 1rem 0; }
+  .remove-btn { cursor: pointer; }
+  .banner {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    max-width: 320px;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    background: #1a7f37;
+    color: white;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+  #notify-status { font-size: 0.85rem; opacity: 0.8; margin: -0.5rem 0 1rem; }
+</style>
+</head>
+<body>
+  <h1>Price Alerts</h1>
+
+  <button id="enable-notifications">Enable browser notifications</button>
+  <p id="notify-status"></p>
+
+  <form id="create-form">
+    <label>
+      Coin
+      <select id="coin" required>
+        <option value="HYPE">HYPE</option>
+        <option value="BTC">BTC</option>
+        <option value="ETH">ETH</option>
+      </select>
+    </label>
+    <label>
+      Direction
+      <select id="direction" required>
+        <option value="above">Above</option>
+        <option value="below">Below</option>
+      </select>
+    </label>
+    <label>
+      Trigger price
+      <input id="trigger_price" type="number" step="any" required />
+    </label>
+    <button type="submit">Add alert</button>
+  </form>
+
+  <div class="tabs" id="tabs"></div>
+  <table id="alert-table">
+    <thead>
+      <tr><th>Coin</th><th>Direction</th><th>Trigger price</th><th></th></tr>
+    </thead>
+    <tbody id="alert-rows"></tbody>
+  </table>
+  <p class="empty" id="empty-message" hidden>No alerts.</p>
+
+  <script>
+    const COINS = ["ALL", "HYPE", "BTC", "ETH"];
+    let activeTab = "ALL";
+    let latestAlerts = {};
+
+    function renderTabs() {
+      const tabsEl = document.getElementById("tabs");
+      tabsEl.innerHTML = "";
+      for (const coin of COINS) {
+        const button = document.createElement("button");
+        button.textContent = coin;
+        button.setAttribute("aria-pressed", String(coin === activeTab));
+        button.addEventListener("click", () => {
+          activeTab = coin;
+          renderTabs();
+          renderTable();
+        });
+        tabsEl.appendChild(button);
+      }
+    }
+
+    function alertsForActiveTab() {
+      if (activeTab === "ALL") {
+        return Object.entries(latestAlerts).flatMap(([coin, alerts]) =>
+          alerts.map((alert) => ({ ...alert, coin }))
+        );
+      }
+      return (latestAlerts[activeTab] ?? []).map((alert) => ({ ...alert, coin: activeTab }));
+    }
+
+    function renderTable() {
+      const rows = document.getElementById("alert-rows");
+      const emptyMessage = document.getElementById("empty-message");
+      const alerts = alertsForActiveTab();
+
+      rows.innerHTML = "";
+      emptyMessage.hidden = alerts.length > 0;
+
+      for (const alert of alerts) {
+        const row = document.createElement("tr");
+
+        const coinCell = document.createElement("td");
+        coinCell.textContent = alert.coin;
+        row.appendChild(coinCell);
+
+        const directionCell = document.createElement("td");
+        directionCell.textContent = alert.direction;
+        row.appendChild(directionCell);
+
+        const priceCell = document.createElement("td");
+        priceCell.textContent = String(alert.trigger_price);
+        row.appendChild(priceCell);
+
+        const actionCell = document.createElement("td");
+        const removeButton = document.createElement("button");
+        removeButton.textContent = "Remove";
+        removeButton.className = "remove-btn";
+        removeButton.addEventListener("click", () => removeAlert(alert));
+        actionCell.appendChild(removeButton);
+        row.appendChild(actionCell);
+
+        rows.appendChild(row);
+      }
+    }
+
+    async function refreshAlerts() {
+      const response = await fetch("/api/alerts");
+      latestAlerts = await response.json();
+      renderTable();
+    }
+
+    async function removeAlert(alert) {
+      const response = await fetch("/api/alerts", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          coin: alert.coin,
+          direction: alert.direction,
+          trigger_price: alert.trigger_price,
+        }),
+      });
+      latestAlerts = await response.json();
+      renderTable();
+    }
+
+    document.getElementById("create-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const coin = document.getElementById("coin").value;
+      const direction = document.getElementById("direction").value;
+      const trigger_price = Number(document.getElementById("trigger_price").value);
+
+      const response = await fetch("/api/alerts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ coin, direction, trigger_price }),
+      });
+
+      if (!response.ok) {
+        alert("Failed to create alert");
+        return;
+      }
+
+      latestAlerts = await response.json();
+      renderTable();
+      event.target.reset();
+    });
+
+    function updateNotifyStatus() {
+      const statusEl = document.getElementById("notify-status");
+      const enableButton = document.getElementById("enable-notifications");
+      if (!("Notification" in window)) {
+        statusEl.textContent = "This browser doesn't support notifications — you'll still see an in-page banner.";
+        enableButton.hidden = true;
+        return;
+      }
+      if (Notification.permission === "granted") {
+        statusEl.textContent = "Notifications enabled.";
+        enableButton.hidden = true;
+      } else if (Notification.permission === "denied") {
+        statusEl.textContent = "Notifications blocked in browser settings — you'll still see an in-page banner.";
+        enableButton.hidden = true;
+      } else {
+        statusEl.textContent = "";
+        enableButton.hidden = false;
+      }
+    }
+
+    document.getElementById("enable-notifications").addEventListener("click", async () => {
+      if ("Notification" in window) {
+        await Notification.requestPermission();
+      }
+      updateNotifyStatus();
+    });
+
+    function showBanner(text) {
+      const banner = document.createElement("div");
+      banner.className = "banner";
+      banner.textContent = text;
+      document.body.appendChild(banner);
+      setTimeout(() => banner.remove(), 6000);
+    }
+
+    function handleAlertFired(alert) {
+      const text = `${alert.coin} crossed ${alert.direction} ${alert.trigger_price} (now ${alert.current_price})`;
+
+      if ("Notification" in window && Notification.permission === "granted") {
+        new Notification(`Alert fired: ${alert.coin}`, { body: text });
+      } else {
+        // Fallback when notifications aren't available/granted — still visible if the tab is open.
+        showBanner(text);
+      }
+
+      // the fired alert was removed from the server's store — refresh to match.
+      refreshAlerts();
+    }
+
+    const eventSource = new EventSource("/api/events");
+    eventSource.addEventListener("alert-fired", (event) => {
+      handleAlertFired(JSON.parse(event.data));
+    });
+
+    updateNotifyStatus();
+    renderTabs();
+    refreshAlerts();
+  </script>
+</body>
+</html>
