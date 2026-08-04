@@ -24,6 +24,8 @@ main
 #cursor rules
 .cursor/
 
+#data
+data/
 
 # Added by cargo
 #

@@ -1,16 +1,28 @@
-use std::{collections::HashSet, fs::{self, File}, writeln};
+use std::{collections::HashSet, fs::{File, OpenOptions}};
 use std::io::{BufWriter, Write};
-use futures::StreamExt;
-use hypersdk::hypercore::{self, Incoming, Trade, types::Subscription, ws::Event};
+use futures::{StreamExt};
+use hypersdk::hypercore::{self, Incoming,types::Subscription, ws::Event};
 
+mod utils;
+use utils::{load_set, write_to_file};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _ = simple_logger::init_with_level(log::Level::Info);
 
-    let mut writer = BufWriter::new(File::create("data/addresses.txt")?);
+    let mut addresses: HashSet<String> = HashSet::new();
 
-    let mut  addresses: HashSet<String> = HashSet::new();
+    // load addresses that were already seen in a previous runs
+    if let Ok(existing_file) = File::open("data/addresses.txt") {
+        load_set(&existing_file, &mut addresses);
+    }
+
+    // open data file wiht append access
+    let data_file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("data/addresses.txt")?;
+    let mut writer = BufWriter::new(data_file);
 
     
     let client = hypercore::mainnet();
@@ -21,7 +33,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         coin: "BTC".to_string(),
     });
 
-    log::info!("Subscribed to BTC 1m candles. Waiting for updates...\n");
+    log::info!("Subscribed to BTC Trades. Waiting for updates...\n");
 
     while let Some(event) = ws.next().await
     // awais for messsage from the stream
@@ -39,6 +51,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 {
                     write_to_file( &mut writer, &mut addresses, trade)?;
                 }
+                writer.flush()?; // flusing makes the buffer writes to the file
+
             }
              Event::Message(_) => {} // for all rest of the messages we don't care about
         }
@@ -47,29 +61,3 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-/* This function tries writing to our file the addresses of the buyer and sellet */
-pub fn write_to_file(writer: &mut BufWriter<File>, 
-                    addresses: &mut HashSet<String>,
-                     trade: Trade ) 
-                     -> Result<(), Box<dyn std::error::Error>>
-{
-
-    log::info!("Received trade: {:?}", trade);
-
-                    let address_buyer:  String = trade.users[0].to_string();
-                    let address_seller: String = trade.users[1].to_string();
-
-                    // address.insert returns true when address is not in the set
-                    // so we don't need a separate contains
-                    // wrinteln is a macro to append to the file
-                    if addresses.insert(address_buyer.clone()) 
-                    {
-                        writeln!(writer, "{address_buyer}")?;
-                    }
-                    
-                    if addresses.insert(address_seller.clone())
-                    {
-                        writeln!(writer, "{address_seller}")?;
-                    }
-    Ok(())
-}
