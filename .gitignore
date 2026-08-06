@@ -23,12 +23,3 @@ main
 
 #cursor rules
 .cursor/
-
-#data
-data/
-
-# Added by cargo
-#
-# already existing elements were commented out
-
-#/target

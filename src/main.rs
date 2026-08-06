@@ -1,31 +1,39 @@
-use std::{collections::HashSet, fs::{File, OpenOptions}};
+use std::{collections::{HashMap, HashSet}, fs::{File, OpenOptions}};
 use std::io::{BufWriter, Write};
 use futures::{StreamExt};
-use hypersdk::hypercore::{self, Incoming,types::Subscription, ws::Event};
+use hypersdk::{Address, Decimal, hypercore::{self, ClearinghouseState, HttpClient, Incoming, types::Subscription, ws::Event}, hyperevm::morpho::Client};
 
 mod utils;
-use utils::{load_set, write_to_file};
+mod consts;
+
+use consts::*;
+use utils::{load_positions, load_set, write_to_file};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _ = simple_logger::init_with_level(log::Level::Info);
+    let client = hypercore::mainnet();
 
     let mut addresses: HashSet<String> = HashSet::new();
 
     // load addresses that were already seen in a previous runs
-    if let Ok(existing_file) = File::open("data/addresses.txt") {
-        load_set(&existing_file, &mut addresses);
+    if let Ok(existing_file) = File::open(ADDRESS_FILE_PATH)
+    {
+       load_set(&existing_file, &mut addresses)?;
     }
+
+    // fetch liquidation data for every known address
+    let positions = load_positions(&addresses, &client).await?;
 
     // open data file wiht append access
     let data_file = OpenOptions::new()
         .create(true)
         .append(true)
-        .open("data/addresses.txt")?;
+        .open(ADDRESS_FILE_PATH)?;
     let mut writer = BufWriter::new(data_file);
 
+
     
-    let client = hypercore::mainnet();
     let mut ws = client.websocket();
 
     // subscribing to bct trades
@@ -60,4 +68,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
+
+
+
 

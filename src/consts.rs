@@ -1,0 +1,1 @@
+pub const  ADDRESS_FILE_PATH :&str = "data/addresses.txt";
