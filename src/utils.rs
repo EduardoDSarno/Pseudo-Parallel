@@ -7,7 +7,7 @@ use std::{
 
 use futures::StreamExt;
 use hypersdk::hypercore::ws::{Connection, Event};
-use hypersdk::hypercore::{ClearinghouseState, HttpClient, Incoming, Trade, WebSocket};
+use hypersdk::hypercore::{ HttpClient, Incoming, Trade};
 use hypersdk::{Address, Decimal};
 
 use crate::consts::ADDRESS_FILE_PATH;
@@ -19,7 +19,7 @@ pub fn write_to_file(
 ) -> Result<(), Box<dyn std::error::Error>> 
 
 {
-    
+
     let data_file = OpenOptions::new()
         .create(true)
         .append(true)

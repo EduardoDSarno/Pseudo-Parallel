@@ -4,6 +4,7 @@ use hypersdk::hypercore::{self, types::Subscription};
 
 mod consts;
 mod utils;
+mod liquidation_calc;
 
 use consts::*;
 use utils::{handle_ws_messages, load_positions, load_set, write_to_file};
@@ -38,6 +39,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     while let Some(trades) = handle_ws_messages(&mut ws).await {
         write_to_file(trades, &mut addresses)?;
     }
-
+    
     Ok(())
 }
