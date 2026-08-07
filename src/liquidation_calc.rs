@@ -13,16 +13,8 @@ pub struct LiquidationMap
 {
     pub current_price: Decimal,
     pub gap: Decimal,
-    pub levels: BTreeMap<Decimal, LiquidationLevel>,
+    pub levels: BTreeMap<Decimal, Decimal>,
 }
-
-#[derive(Default)]
-pub struct LiquidationLevel
-{
-    pub size_usd: Decimal,
-    pub addresses_count: usize,
-}
-
 
 
 pub fn build_liquidation_map(positions: HashMap<Address, (Decimal, Option<Decimal>)>,
@@ -33,14 +25,13 @@ pub fn build_liquidation_map(positions: HashMap<Address, (Decimal, Option<Decima
 
     // Btreemap so we can keep adjusting the head based on price and balence
     // short and longs
-    let mut levels: BTreeMap<Decimal, LiquidationLevel> = BTreeMap::new();
-
-
+    let mut levels: BTreeMap<Decimal, Decimal> = BTreeMap::new();
 
     // loop through the hashmap
     // if there's a liquidation price extract it
     // otherwsie skip this postion and go to the next
-    for (_address , (position_size, liquidation_px)) in positions
+    for (_address , (position_size, liquidation_px)) 
+    in positions
     {
         let Some(liquidation_px) = liquidation_px else 
         {
@@ -56,12 +47,11 @@ pub fn build_liquidation_map(positions: HashMap<Address, (Decimal, Option<Decima
 
 
         // find level on btree and insert or create an empty one (with default)
-        let level: &mut LiquidationLevel = levels
-        .entry(bucket)
-        .or_default();
+        // it gets a mutable reference to value stored in the bucket
+        let total_usd = levels.entry(bucket).or_default();
 
-        level.size_usd        += position_size_usd;
-        level.addresses_count += 1;
+        // updates the stored value
+        *total_usd += position_size_usd;
     };
 
     // Create new map
