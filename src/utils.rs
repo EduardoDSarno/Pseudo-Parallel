@@ -7,19 +7,16 @@ use std::{
 
 use futures::StreamExt;
 use hypersdk::hypercore::ws::{Connection, Event};
-use hypersdk::hypercore::{ HttpClient, Incoming, Trade};
+use hypersdk::hypercore::{HttpClient, Incoming, Trade};
 use hypersdk::{Address, Decimal};
 
-use crate::consts::ADDRESS_FILE_PATH;
+use crate::consts::{ADDRESS_FILE_PATH, BTC_STR};
 
 /* This function writes the new addresses from one WebSocket trade batch. */
 pub fn write_to_file(
     trades: Vec<Trade>,
     addresses: &mut HashSet<String>,
-) -> Result<(), Box<dyn std::error::Error>> 
-
-{
-
+) -> Result<(), Box<dyn std::error::Error>> {
     let data_file = OpenOptions::new()
         .create(true)
         .append(true)
@@ -71,10 +68,12 @@ pub fn load_set(file: &File, set: &mut HashSet<String>) -> Result<(), Box<dyn st
 pub async fn load_positions(
     addresses: &HashSet<String>,
     client: &HttpClient,
+    account_limit: Option<usize>,
 ) -> Result<HashMap<Address, (Decimal, Option<Decimal>)>, Box<dyn std::error::Error>> {
     let mut positions = HashMap::new();
+    let number_of_accounts = account_limit.unwrap_or(addresses.len());
 
-    for addr in addresses {
+    for addr in addresses.iter().take(number_of_accounts) {
         let (size, liq) = get_clearing_house_state(client, addr).await?;
         positions.insert(addr.parse()?, (size, liq));
     }
@@ -103,10 +102,14 @@ pub async fn get_clearing_house_state(
     Ok((Decimal::ZERO, None)) // not found, we don't care
 }
 
-pub async fn handle_ws_messages(ws: &mut Connection) -> Option<Vec<Trade>> {
-    while let Some(event) = ws.next().await
+pub enum EventTypes {
+    Trades(Vec<Trade>),
+    MarkPrice(Decimal),
+}
+
+pub async fn handle_ws_messages(ws: &mut Connection) -> Option<EventTypes> {
     // awais for messsage from the stream
-    {
+    while let Some(event) = ws.next().await {
         match event {
             Event::Connected => {
                 log::info!("Websocket Connected!");
@@ -116,7 +119,12 @@ pub async fn handle_ws_messages(ws: &mut Connection) -> Option<Vec<Trade>> {
             }
             // we store every new addressess coming
             Event::Message(Incoming::Trades(trades)) => {
-                return Some(trades);
+                return Some(EventTypes::Trades(trades));
+            }
+            Event::Message(Incoming::ActiveAssetCtx { coin, ctx }) => {
+                if coin == BTC_STR.to_string() {
+                    return Some(EventTypes::MarkPrice(ctx.mark_px.unwrap_or_default()));
+                }
             }
             Event::Message(_) => {} // for all rest of the messages we don't care about
         }
