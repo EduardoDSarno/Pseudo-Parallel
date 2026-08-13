@@ -2,7 +2,7 @@ mod hyperliquid;
 mod market;
 
 use hyperliquid::hl_market_data;
-use market::{Coin, MarketInput};
+use market::{Coin};
 use tokio::sync::mpsc;
 
 const MARKET_INPUT_BUFFER: usize = 256;
@@ -13,16 +13,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let market_data_task = tokio::spawn(hl_market_data(Coin::Btc, tx));
 
-    while let Some(input) = rx.recv().await {
-        match input {
-            MarketInput::PriceUpdate {
-                coin,
-                mark_price,
-                timestamp,
-            } => {
-                println!("{coin} mark price: {mark_price} at {timestamp:?}");
-            }
-        }
+    while let Some(input) = rx.recv().await 
+    {
+        input.display();
     }
 
     // If the producer panicked or the WebSocket ended unexpectedly, surface

@@ -1,5 +1,6 @@
 use std::{fmt, time::SystemTime};
 
+use chrono::{DateTime, Local};
 use hypersdk::Decimal;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -35,4 +36,23 @@ pub enum MarketInput {
         mark_price: Decimal,
         timestamp: SystemTime,
     },
+}
+
+impl MarketInput 
+{
+    pub fn display(self) -> ()
+    {
+        match self 
+        {
+            MarketInput::PriceUpdate { coin, mark_price, timestamp } =>
+            {
+                let local_time: DateTime<Local> = timestamp.into();
+                println!(
+                    "{coin} mark price: {mark_price} at {}",
+                    local_time.format("%Y-%m-%d %H:%M:%S%.3f")
+                );
+            },
+        }
+       
+    }
 }
