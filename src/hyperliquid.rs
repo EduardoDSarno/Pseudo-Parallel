@@ -27,16 +27,16 @@ pub async fn hl_market_data(coin: Coin, tx: Sender<MarketInput>) -> Result<(), s
                 println!("Disconnected from Hyperliquid");
             }
             Event::Message(Incoming::ActiveAssetCtx { ctx, .. }) => {
-                let Some(mark_price) = ctx.mark_px else {
+                let Some(input) =
+                    MarketInput::create_mark_price_update
+                    (
+                      coin,
+          ctx.mark_px,
+           SystemTime::now()
+                    )
+                else 
+                {
                     continue;
-                };
-
-                let timestamp = SystemTime::now();
-
-                let input = MarketInput::PriceUpdate {
-                    coin,
-                    mark_price,
-                    timestamp,
                 };
 
                 if tx.send(input).await.is_err() {

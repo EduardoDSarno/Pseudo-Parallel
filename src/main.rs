@@ -2,7 +2,7 @@ mod hyperliquid;
 mod market;
 
 use hyperliquid::hl_market_data;
-use market::{Coin};
+use market::Coin;
 use tokio::sync::mpsc;
 
 const MARKET_INPUT_BUFFER: usize = 256;
@@ -13,8 +13,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let market_data_task = tokio::spawn(hl_market_data(Coin::Btc, tx));
 
-    while let Some(input) = rx.recv().await 
-    {
+    while let Some(input) = rx.recv().await {
         input.display();
     }
 
