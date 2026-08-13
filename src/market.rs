@@ -53,14 +53,14 @@ impl MarketInput {
     }
 
     /// Prints the market input in a human-readable form.
-    pub fn display(self) {
+    pub fn display(&self) {
         match self {
             MarketInput::PriceUpdate {
                 coin,
                 mark_price,
                 timestamp,
             } => {
-                let local_time: DateTime<Local> = timestamp.into();
+                let local_time: DateTime<Local> = (*timestamp).into();
                 println!(
                     "{coin} mark price: {mark_price} at {}",
                     local_time.format("%Y-%m-%d %H:%M:%S%.3f")

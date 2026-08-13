@@ -28,14 +28,8 @@ pub async fn hl_market_data(coin: Coin, tx: Sender<MarketInput>) -> Result<(), s
             }
             Event::Message(Incoming::ActiveAssetCtx { ctx, .. }) => {
                 let Some(input) =
-                    MarketInput::create_mark_price_update
-                    (
-                      coin,
-          ctx.mark_px,
-           SystemTime::now()
-                    )
-                else 
-                {
+                    MarketInput::create_mark_price_update(coin, ctx.mark_px, SystemTime::now())
+                else {
                     continue;
                 };
 
