@@ -78,13 +78,17 @@ pub fn match_market_time(timestamp: SystemTime) -> MarketTimesVol {
 /// Received a percent change and a mutable detector and evaluates if a price spiked
 /// and updates the detector based on that
 /// Later add a struct insated of a bool for returning type, preferably something like Option<VolatilitySpike>
-pub fn evaluate_volatility(percent_change: Decimal, detector: &mut VolatilityDetector) -> bool {
+pub fn evaluate_volatility(
+    percent_change: Decimal,
+    observed_at: SystemTime,
+    detector: &mut VolatilityDetector,
+) -> bool {
     // ignore alert
     if detector.cooldown_is_active() {
         return false;
     }
 
-    let current_mkt_time = match_market_time(SystemTime::now());
+    let current_mkt_time = match_market_time(observed_at);
     let threshold_prct = current_mkt_time.threshold_percent();
 
     // using absolute for dowards and upwards spikes
@@ -165,7 +169,7 @@ mod tests {
             cooldown_until: Some(cooldown_until),
         };
 
-        let detected = evaluate_volatility(dec!(5.00), &mut detector);
+        let detected = evaluate_volatility(dec!(5.00), timestamp(1_786_993_200), &mut detector);
 
         assert!(!detected);
         assert_eq!(detector.cooldown_until, Some(cooldown_until));
@@ -175,7 +179,7 @@ mod tests {
     fn movement_below_every_threshold_is_not_a_spike() {
         let mut detector = VolatilityDetector::new();
 
-        let detected = evaluate_volatility(dec!(0.20), &mut detector);
+        let detected = evaluate_volatility(dec!(0.20), timestamp(1_786_993_200), &mut detector);
 
         assert!(!detected);
         assert!(detector.cooldown_until.is_none());
@@ -185,7 +189,7 @@ mod tests {
     fn positive_movement_above_every_threshold_is_a_spike() {
         let mut detector = VolatilityDetector::new();
 
-        let detected = evaluate_volatility(dec!(1.00), &mut detector);
+        let detected = evaluate_volatility(dec!(1.00), timestamp(1_786_993_200), &mut detector);
 
         assert!(detected);
         assert!(detector.cooldown_is_active());
@@ -195,7 +199,7 @@ mod tests {
     fn negative_movement_above_every_threshold_is_a_spike() {
         let mut detector = VolatilityDetector::new();
 
-        let detected = evaluate_volatility(dec!(-1.00), &mut detector);
+        let detected = evaluate_volatility(dec!(-1.00), timestamp(1_786_993_200), &mut detector);
 
         assert!(detected);
         assert!(detector.cooldown_is_active());

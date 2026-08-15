@@ -43,7 +43,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 if let Some(change) = price_window.percentage_change() // check for spike
                 {
-                    evaluate_volatility(change, &mut detector);
+                    evaluate_volatility(change, timestamp, &mut detector);
                     println!("Change inside rolling window: {change}%");
                 }
             }
