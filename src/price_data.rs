@@ -35,8 +35,7 @@ pub struct PriceWindow {
 }
 
 impl PriceWindow {
-    pub fn new(duration: Duration, max_points: usize) -> Self 
-    {
+    pub fn new(duration: Duration, max_points: usize) -> Self {
         assert!(max_points > 0, "max_points must be greater than zero");
 
         Self {
@@ -83,6 +82,7 @@ impl PriceWindow {
         self.price_points.back()
     }
 
+    /// Calculate the percentage change of price in the VecDeque
     pub fn percentage_change(&self) -> Option<Decimal> {
         if self.price_points.len() < 2 {
             return None;
@@ -95,6 +95,7 @@ impl PriceWindow {
             return None;
         }
 
+        // converts to Decimal and use 100 to convert to percent
         Some((newest_price - oldest_price) / oldest_price * Decimal::from(100))
     }
 }

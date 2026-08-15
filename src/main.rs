@@ -1,9 +1,11 @@
 mod hyperliquid;
 mod market;
 mod price_data;
+mod volatility;
 
 use std::time::Duration;
 
+use volatility::*;
 use hyperliquid::hl_market_data;
 use market::{Coin, MarketInput};
 use price_data::{PricePoint, PriceWindow};
@@ -14,8 +16,13 @@ const VOLATILITY_WINDOW_SECONDS: u64 = 60;
 const VOLATILITY_WINDOW_MAX_POINTS: usize = 1_000;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), Box<dyn std::error::Error>> 
+{
+
+    let _ = simple_logger::init_with_level(log::Level::Info);
+
     let (tx, mut rx) = mpsc::channel(MARKET_INPUT_BUFFER);
+
     let mut price_window = PriceWindow::new(
         Duration::from_secs(VOLATILITY_WINDOW_SECONDS),
         VOLATILITY_WINDOW_MAX_POINTS,
@@ -23,6 +30,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let market_data_task = tokio::spawn(hl_market_data(Coin::Btc, tx));
 
+    let mut detector = VolatilityDetector::new();
+    
     while let Some(input) = rx.recv().await {
         input.display();
 
@@ -30,11 +39,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             MarketInput::PriceUpdate {
                 mark_price,
                 timestamp,
-                ..
+                .. // ignore rest
             } => {
                 price_window.push(PricePoint::new(mark_price, timestamp));
 
-                if let Some(change) = price_window.percentage_change() {
+                if let Some(change) = price_window.percentage_change() // check for spike
+                {
+                    evaluate_volatility(change, &mut detector);
                     println!("Change inside rolling window: {change}%");
                 }
             }

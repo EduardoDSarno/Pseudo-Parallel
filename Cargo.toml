@@ -4,8 +4,13 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+chrono = "0.4.42"
+chrono-tz = "0.10.4"
 futures = "0.3.34"
 hypersdk = "0.2.14"
+log = "0.4.33"
+rust_decimal = { version = "1.42.1", features = ["macros"] }
 serde = "1.0.229"
 serde_json = "1.0.151"
+simple_logger = "5.2.0"
 tokio = { version = "1.53.1", features = ["full"] }
