@@ -36,6 +36,30 @@ impl MarketTimesVol {
 
 use std::time::{Duration, Instant, SystemTime};
 
+use crate::market::Coin;
+
+/// Describes a price movement that crossed the active volatility threshold.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct VolatilitySpike {
+    pub coin: Coin,
+    pub percent_change: Decimal,
+    pub threshold_percent: Decimal,
+    pub market_time: MarketTimesVol,
+    pub observed_at: SystemTime,
+}
+
+impl VolatilitySpike {
+    pub fn display(&self) {
+        log::warn!(
+            "{} price spike: {}% (threshold: {}%, market time: {:?})",
+            self.coin,
+            self.percent_change,
+            self.threshold_percent,
+            self.market_time
+        );
+    }
+}
+
 /// This struct is just to hold the time when a cooldown_ends
 pub struct VolatilityDetector {
     cooldown_until: Option<Instant>,
@@ -75,17 +99,17 @@ pub fn match_market_time(timestamp: SystemTime) -> MarketTimesVol {
     }
 }
 
-/// Received a percent change and a mutable detector and evaluates if a price spiked
-/// and updates the detector based on that
-/// Later add a struct insated of a bool for returning type, preferably something like Option<VolatilitySpike>
+/// Evaluates a price movement and returns its spike information when the
+/// movement crosses the threshold for the observed market time.
 pub fn evaluate_volatility(
+    coin: Coin,
     percent_change: Decimal,
     observed_at: SystemTime,
     detector: &mut VolatilityDetector,
-) -> bool {
+) -> Option<VolatilitySpike> {
     // ignore alert
     if detector.cooldown_is_active() {
-        return false;
+        return None;
     }
 
     let current_mkt_time = match_market_time(observed_at);
@@ -93,13 +117,19 @@ pub fn evaluate_volatility(
 
     // using absolute for dowards and upwards spikes
     if percent_change.abs() >= threshold_prct {
-        log::warn!("PRICE SPIKE DETECTED");
         detector.cooldown_until =
             Some(Instant::now() + Duration::from_secs(VOLATILITY_COOLDOWN_SECONDS));
-        return true;
+
+        return Some(VolatilitySpike {
+            coin,
+            percent_change,
+            threshold_percent: threshold_prct,
+            market_time: current_mkt_time,
+            observed_at,
+        });
     }
 
-    false
+    None
 }
 
 #[cfg(test)]
@@ -107,6 +137,8 @@ mod tests {
     use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
     use hypersdk::dec;
+
+    use crate::market::Coin;
 
     use super::{MarketTimesVol, VolatilityDetector, evaluate_volatility, match_market_time};
 
@@ -169,19 +201,29 @@ mod tests {
             cooldown_until: Some(cooldown_until),
         };
 
-        let detected = evaluate_volatility(dec!(5.00), timestamp(1_786_993_200), &mut detector);
+        let spike = evaluate_volatility(
+            Coin::Btc,
+            dec!(5.00),
+            timestamp(1_786_993_200),
+            &mut detector,
+        );
 
-        assert!(!detected);
+        assert!(spike.is_none());
         assert_eq!(detector.cooldown_until, Some(cooldown_until));
     }
 
     #[test]
-    fn movement_below_every_threshold_is_not_a_spike() {
+    fn movement_below_normal_threshold_is_not_a_spike() {
         let mut detector = VolatilityDetector::new();
 
-        let detected = evaluate_volatility(dec!(0.20), timestamp(1_786_993_200), &mut detector);
+        let spike = evaluate_volatility(
+            Coin::Btc,
+            dec!(0.20),
+            timestamp(1_786_993_200),
+            &mut detector,
+        );
 
-        assert!(!detected);
+        assert!(spike.is_none());
         assert!(detector.cooldown_until.is_none());
     }
 
@@ -189,9 +231,15 @@ mod tests {
     fn positive_movement_above_every_threshold_is_a_spike() {
         let mut detector = VolatilityDetector::new();
 
-        let detected = evaluate_volatility(dec!(1.00), timestamp(1_786_993_200), &mut detector);
+        let observed_at = timestamp(1_786_993_200);
+        let spike = evaluate_volatility(Coin::Btc, dec!(1.00), observed_at, &mut detector)
+            .expect("movement should produce a volatility spike");
 
-        assert!(detected);
+        assert_eq!(spike.coin, Coin::Btc);
+        assert_eq!(spike.percent_change, dec!(1.00));
+        assert_eq!(spike.threshold_percent, dec!(0.30));
+        assert_eq!(spike.market_time, MarketTimesVol::Normal);
+        assert_eq!(spike.observed_at, observed_at);
         assert!(detector.cooldown_is_active());
     }
 
@@ -199,9 +247,12 @@ mod tests {
     fn negative_movement_above_every_threshold_is_a_spike() {
         let mut detector = VolatilityDetector::new();
 
-        let detected = evaluate_volatility(dec!(-1.00), timestamp(1_786_993_200), &mut detector);
+        let observed_at = timestamp(1_786_993_200);
+        let spike = evaluate_volatility(Coin::Btc, dec!(-1.00), observed_at, &mut detector)
+            .expect("movement should produce a volatility spike");
 
-        assert!(detected);
+        assert_eq!(spike.percent_change, dec!(-1.00));
+        assert_eq!(spike.observed_at, observed_at);
         assert!(detector.cooldown_is_active());
     }
 }

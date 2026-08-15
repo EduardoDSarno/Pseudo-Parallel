@@ -35,15 +35,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         match input {
             MarketInput::PriceUpdate {
+                coin,
                 mark_price,
                 timestamp,
-                .. // ignore rest
             } => {
                 price_window.push(PricePoint::new(mark_price, timestamp));
 
-                if let Some(change) = price_window.percentage_change() // check for spike
-                {
-                    evaluate_volatility(change, timestamp, &mut detector);
+                // Check the latest rolling-window movement for a spike.
+                if let Some(change) = price_window.percentage_change() {
+                    if let Some(spike) = evaluate_volatility(coin, change, timestamp, &mut detector)
+                    {
+                        spike.display();
+                    }
+
                     println!("Change inside rolling window: {change}%");
                 }
             }
