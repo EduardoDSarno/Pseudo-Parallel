@@ -1,16 +1,10 @@
 use chrono::{DateTime, Datelike, Timelike, Utc, Weekday};
 use chrono_tz::America::New_York;
-use hypersdk::{Decimal, dec};
-
-/// This are percentage points related to BTC's price
-const NEW_YORK_OPEN_VOLATILITY_THRESHOLD_PERCENT: Decimal = dec!(0.45);
-const WEEKEND_VOLATILITY_THRESHOLD_PERCENT: Decimal = dec!(0.20);
-const NORMAL_VOLATILITY_THRESHOLD_PERCENT: Decimal = dec!(0.30);
+use hypersdk::Decimal;
 
 const MINUTES_PER_HOUR: u32 = 60;
 const NEW_YORK_MARKET_OPEN_MINUTES: u32 = 9 * MINUTES_PER_HOUR + 30;
 const NEW_YORK_OPEN_WINDOW_END_MINUTES: u32 = 11 * MINUTES_PER_HOUR;
-const VOLATILITY_COOLDOWN_SECONDS: u64 = 60;
 
 /// This enum will hold the value threshol of the different volatility types
 /// that I chose to cover
@@ -34,9 +28,15 @@ impl MarketTimesVol {
     }
 }
 
-use std::time::{Duration, Instant, SystemTime};
+use std::time::{Instant, SystemTime};
 
-use crate::market::Coin;
+use crate::{
+    config::{
+        NEW_YORK_OPEN_VOLATILITY_THRESHOLD_PERCENT, NORMAL_VOLATILITY_THRESHOLD_PERCENT,
+        VOLATILITY_COOLDOWN, WEEKEND_VOLATILITY_THRESHOLD_PERCENT,
+    },
+    market::Coin,
+};
 
 /// Describes a price movement that crossed the active volatility threshold.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -117,8 +117,7 @@ pub fn evaluate_volatility(
 
     // using absolute for dowards and upwards spikes
     if percent_change.abs() >= threshold_prct {
-        detector.cooldown_until =
-            Some(Instant::now() + Duration::from_secs(VOLATILITY_COOLDOWN_SECONDS));
+        detector.cooldown_until = Some(Instant::now() + VOLATILITY_COOLDOWN);
 
         return Some(VolatilitySpike {
             coin,

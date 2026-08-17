@@ -1,20 +1,21 @@
+mod config;
 mod hyperliquid;
 mod market;
+mod position;
 mod price_data;
 mod volatility;
 
-use std::{collections::HashSet, time::Duration};
+use std::collections::HashSet;
 
+use config::{
+    ADDRESS_QUEUE_BUFFER, MARKET_INPUT_BUFFER, VOLATILITY_WINDOW_DURATION,
+    VOLATILITY_WINDOW_MAX_POINTS,
+};
 use hyperliquid::{hl_account_state_scanner, hl_market_data};
 use market::{Coin, MarketInput};
 use price_data::{PricePoint, PriceWindow};
 use tokio::sync::mpsc;
 use volatility::*;
-
-const MARKET_INPUT_BUFFER: usize = 256;
-const ADDRESS_QUEUE_BUFFER: usize = 2_048;
-const VOLATILITY_WINDOW_SECONDS: u64 = 60;
-const VOLATILITY_WINDOW_MAX_POINTS: usize = 1_000;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -24,10 +25,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (address_tx, address_rx) = mpsc::channel::<String>(ADDRESS_QUEUE_BUFFER);
     let account_state_task = tokio::spawn(hl_account_state_scanner(address_rx));
 
-    let mut price_window = PriceWindow::new(
-        Duration::from_secs(VOLATILITY_WINDOW_SECONDS),
-        VOLATILITY_WINDOW_MAX_POINTS,
-    );
+    let mut price_window =
+        PriceWindow::new(VOLATILITY_WINDOW_DURATION, VOLATILITY_WINDOW_MAX_POINTS);
 
     let market_data_task = tokio::spawn(hl_market_data(Coin::Btc, tx));
 

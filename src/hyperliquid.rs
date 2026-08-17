@@ -1,4 +1,4 @@
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::SystemTime;
 
 use futures::StreamExt;
 use hypersdk::hypercore::{types::*, ws::Event};
@@ -8,9 +8,10 @@ use tokio::{
     time::MissedTickBehavior,
 };
 
-use crate::market::{Coin, MarketInput};
-
-const CLEARINGHOUSE_REQUEST_INTERVAL: Duration = Duration::from_millis(125);
+use crate::{
+    config::{CLEARINGHOUSE_REQUEST_INTERVAL, hyperliquid_time_to_system_time},
+    market::{Coin, MarketInput},
+};
 
 /// Subscribes to the active asset context for the given coin and streams
 /// every price update to `tx` for as long as the connection stays alive.
@@ -51,7 +52,10 @@ pub async fn hl_market_data(coin: Coin, tx: Sender<MarketInput>) -> Result<(), s
             }
             Event::Message(Incoming::Trades(trades)) => {
                 for trade in trades {
-                    let trade_timestamp = UNIX_EPOCH + Duration::from_millis(trade.time);
+                    let Some(trade_timestamp) = hyperliquid_time_to_system_time(trade.time) else {
+                        log::warn!("Ignoring trade with unsupported timestamp: {}", trade.time);
+                        continue;
+                    };
                     let Some(input) = MarketInput::create_trade_record(
                         coin,
                         trade.users[0],
