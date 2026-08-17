@@ -1,11 +1,16 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use futures::StreamExt;
-use hypersdk::hypercore;
 use hypersdk::hypercore::{types::*, ws::Event};
-use tokio::sync::mpsc::Sender;
+use hypersdk::{Address, hypercore};
+use tokio::{
+    sync::mpsc::{Receiver, Sender},
+    time::MissedTickBehavior,
+};
 
 use crate::market::{Coin, MarketInput};
+
+const CLEARINGHOUSE_REQUEST_INTERVAL: Duration = Duration::from_millis(125);
 
 /// Subscribes to the active asset context for the given coin and streams
 /// every price update to `tx` for as long as the connection stays alive.
@@ -72,4 +77,39 @@ pub async fn hl_market_data(coin: Coin, tx: Sender<MarketInput>) -> Result<(), s
         std::io::ErrorKind::UnexpectedEof,
         "Hyperliquid WebSocket stream ended",
     ))
+}
+
+/// Consumes discovered addresses and requests their clearinghouse states at a
+/// controlled rate. A single reusable client and interval keep the REST API
+/// work outside the market-data consumer.
+pub async fn hl_account_state_scanner(mut address_rx: Receiver<String>) {
+    let client = hypercore::mainnet();
+    let mut request_interval = tokio::time::interval(CLEARINGHOUSE_REQUEST_INTERVAL);
+    request_interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
+
+    while let Some(address) = address_rx.recv().await {
+        request_interval.tick().await;
+
+        // Parse string into usable Addresses
+        let user = match address.parse::<Address>() {
+            Ok(user) => user,
+            Err(error) => {
+                log::warn!("Ignoring invalid Hyperliquid address {address}: {error}");
+                continue;
+            }
+        };
+
+        match client.clearinghouse_state(user, None).await {
+            Ok(state) => {
+                log::info!(
+                    "Loaded account {address}: {} open position(s), state time {}",
+                    state.asset_positions.len(),
+                    state.time
+                );
+            }
+            Err(error) => {
+                log::warn!("Could not load clearinghouse state for {address}: {error}");
+            }
+        }
+    }
 }

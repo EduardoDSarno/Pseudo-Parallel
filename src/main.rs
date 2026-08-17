@@ -5,7 +5,7 @@ mod volatility;
 
 use std::{collections::HashSet, time::Duration};
 
-use hyperliquid::hl_market_data;
+use hyperliquid::{hl_account_state_scanner, hl_market_data};
 use market::{Coin, MarketInput};
 use price_data::{PricePoint, PriceWindow};
 use tokio::sync::mpsc;
@@ -21,15 +21,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _ = simple_logger::init_with_level(log::Level::Info);
 
     let (tx, mut rx) = mpsc::channel(MARKET_INPUT_BUFFER);
-    let (address_tx, mut address_rx) = mpsc::channel::<String>(ADDRESS_QUEUE_BUFFER);
-
-    // This temporary consumer proves that address discovery and queueing work.
-    // Its body will become the rate-limited clearinghouse scanner next.
-    let address_queue_task = tokio::spawn(async move {
-        while let Some(address) = address_rx.recv().await {
-            log::info!("New address queued for account lookup: {address}");
-        }
-    });
+    let (address_tx, address_rx) = mpsc::channel::<String>(ADDRESS_QUEUE_BUFFER);
+    let account_state_task = tokio::spawn(hl_account_state_scanner(address_rx));
 
     let mut price_window = PriceWindow::new(
         Duration::from_secs(VOLATILITY_WINDOW_SECONDS),
@@ -84,7 +77,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Close the queue after market data ends, then let its consumer finish.
     drop(address_tx);
-    address_queue_task.await?;
+    account_state_task.await?;
 
     Ok(())
 }
