@@ -1,7 +1,7 @@
 use std::{fmt, time::SystemTime};
 
 use chrono::{DateTime, Local};
-use hypersdk::Decimal;
+use hypersdk::{Address, Decimal};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Coin {
@@ -35,6 +35,14 @@ pub enum MarketInput {
         mark_price: Decimal,
         timestamp: SystemTime,
     },
+    TradeObserved 
+    {
+        coin: Coin,
+        buyer: String,
+        seller: String,
+        amount_coin: Decimal,
+        timestamp: SystemTime,
+    },
 }
 
 impl MarketInput {
@@ -48,6 +56,28 @@ impl MarketInput {
         mark_price.map(|mark_price| Self::PriceUpdate {
             coin,
             mark_price,
+            timestamp,
+        })
+    }
+
+    /// Creates a trade-observed event when the exchange supplied real trade participants.
+    /// Trades reported without buyer/seller addresses are rejected at the ingestion boundary.
+    pub(crate) fn create_trades_record(
+        coin: Coin,
+        buyer: Address,
+        seller: Address,
+        amount_coin: Decimal,
+        timestamp: SystemTime,
+    ) -> Option<Self> {
+        if buyer == Address::ZERO || seller == Address::ZERO {
+            return None;
+        }
+
+        Some(Self::TradeObserved {
+            coin,
+            buyer: buyer.to_string(),
+            seller: seller.to_string(),
+            amount_coin,
             timestamp,
         })
     }
@@ -66,6 +96,19 @@ impl MarketInput {
                     local_time.format("%Y-%m-%d %H:%M:%S%.3f")
                 );
             }
+            MarketInput::TradeObserved {
+                coin,
+                buyer,
+                seller,
+                timestamp,
+                amount_coin,
+            } => {
+                let local_time: DateTime<Local> = (*timestamp).into();
+                println!(
+                    "{amount_coin} {coin} trade buyer: {buyer} seller: {seller} at {}",
+                    local_time.format("%Y-%m-%d %H:%M:%S%.3f")
+                );
+            }
         }
     }
 }
@@ -74,7 +117,7 @@ impl MarketInput {
 mod tests {
     use std::time::{Duration, UNIX_EPOCH};
 
-    use hypersdk::Decimal;
+    use hypersdk::{Address, Decimal};
 
     use super::{Coin, MarketInput};
 
@@ -101,13 +144,63 @@ mod tests {
                 assert_eq!(mark_price, price);
                 assert_eq!(observed_at, timestamp);
             }
-            None => panic!("a valid mark price should create a market input"),
+            _ => panic!("a valid mark price should create a market input"),
         }
     }
 
     #[test]
     fn missing_mark_price_does_not_create_price_update() {
         let input = MarketInput::create_mark_price_update(Coin::Btc, None, UNIX_EPOCH);
+
+        assert!(input.is_none());
+    }
+
+    #[test]
+    fn valid_trade_creates_trade_observed() {
+        let buyer: Address = "0x1111111111111111111111111111111111111111"
+            .parse()
+            .unwrap();
+        let seller: Address = "0x2222222222222222222222222222222222222222"
+            .parse()
+            .unwrap();
+        let amount_coin = Decimal::new(5, 1);
+        let timestamp = UNIX_EPOCH + Duration::from_millis(1_750_000_000_123);
+
+        let input = MarketInput::create_trades_record(
+            Coin::Btc,
+            buyer,
+            seller,
+            amount_coin,
+            timestamp,
+        );
+
+        match input {
+            Some(MarketInput::TradeObserved {
+                coin,
+                buyer: observed_buyer,
+                seller: observed_seller,
+                amount_coin: observed_amount,
+                timestamp: observed_at,
+            }) => {
+                assert_eq!(coin, Coin::Btc);
+                assert_eq!(observed_buyer, buyer.to_string());
+                assert_eq!(observed_seller, seller.to_string());
+                assert_eq!(observed_amount, amount_coin);
+                assert_eq!(observed_at, timestamp);
+            }
+            _ => panic!("a trade with real participants should create a market input"),
+        }
+    }
+
+    #[test]
+    fn missing_participants_does_not_create_trade_observed() {
+        let input = MarketInput::create_trades_record(
+            Coin::Btc,
+            Address::ZERO,
+            Address::ZERO,
+            Decimal::new(5, 1),
+            UNIX_EPOCH,
+        );
 
         assert!(input.is_none());
     }
