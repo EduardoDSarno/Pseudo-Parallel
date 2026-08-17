@@ -51,6 +51,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     println!("Change inside rolling window: {change}%");
                 }
             }
+            MarketInput::TradeObserved { .. } => {}
         }
     }
 

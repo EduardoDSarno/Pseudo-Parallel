@@ -1,4 +1,4 @@
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use futures::StreamExt;
 use hypersdk::hypercore;
@@ -14,7 +14,13 @@ use crate::market::{Coin, MarketInput};
 pub async fn hl_market_data(coin: Coin, tx: Sender<MarketInput>) -> Result<(), std::io::Error> {
     let mut ws = hypercore::mainnet_ws();
 
+    // Subscribe to mark-price updates for the selected coin.
     ws.subscribe(Subscription::ActiveAssetCtx {
+        coin: coin.as_hyperliquid_symbol().to_owned(),
+    });
+
+    // Use the same connection to observe trades for the selected coin.
+    ws.subscribe(Subscription::Trades {
         coin: coin.as_hyperliquid_symbol().to_owned(),
     });
 
@@ -33,8 +39,27 @@ pub async fn hl_market_data(coin: Coin, tx: Sender<MarketInput>) -> Result<(), s
                     continue;
                 };
 
+                // clean shut down when the receiving end has been dropped
                 if tx.send(input).await.is_err() {
                     return Ok(());
+                }
+            }
+            Event::Message(Incoming::Trades(trades)) => {
+                for trade in trades {
+                    let trade_timestamp = UNIX_EPOCH + Duration::from_millis(trade.time);
+                    let Some(input) = MarketInput::create_trade_record(
+                        coin,
+                        trade.users[0],
+                        trade.users[1],
+                        trade_timestamp,
+                    ) else {
+                        continue;
+                    };
+
+                    // clean shut down when the receiving end has been dropped
+                    if tx.send(input).await.is_err() {
+                        return Ok(());
+                    }
                 }
             }
             _ => {
