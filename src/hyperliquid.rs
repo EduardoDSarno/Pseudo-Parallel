@@ -9,15 +9,21 @@ use tokio::{
 };
 
 use crate::{
-    config::{CLEARINGHOUSE_REQUEST_INTERVAL, hyperliquid_time_to_system_time},
+    config::{
+        CLEARINGHOUSE_REQUEST_INTERVAL, MINIMUM_WHALE_POSITION_USD, hyperliquid_time_to_system_time,
+    },
     market::{Coin, MarketInput},
+    position::{AccountLookupRequest, PositionUpdate, filter_whale_position},
 };
 
 /// Subscribes to the active asset context for the given coin and streams
 /// every price update to `tx` for as long as the connection stays alive.
 /// The underlying connection auto-reconnects and re-subscribes on its own,
 /// so this only returns once the receiving end is dropped.
-pub async fn hl_market_data(coin: Coin, tx: Sender<MarketInput>) -> Result<(), std::io::Error> {
+pub async fn hl_market_data(
+    coin: Coin,
+    market_tx: Sender<MarketInput>,
+) -> Result<(), std::io::Error> {
     let mut ws = hypercore::mainnet_ws();
 
     // Subscribe to mark-price updates for the selected coin.
@@ -46,7 +52,7 @@ pub async fn hl_market_data(coin: Coin, tx: Sender<MarketInput>) -> Result<(), s
                 };
 
                 // clean shut down when the receiving end has been dropped
-                if tx.send(input).await.is_err() {
+                if market_tx.send(input).await.is_err() {
                     return Ok(());
                 }
             }
@@ -66,7 +72,7 @@ pub async fn hl_market_data(coin: Coin, tx: Sender<MarketInput>) -> Result<(), s
                     };
 
                     // clean shut down when the receiving end has been dropped
-                    if tx.send(input).await.is_err() {
+                    if market_tx.send(input).await.is_err() {
                         return Ok(());
                     }
                 }
@@ -86,13 +92,18 @@ pub async fn hl_market_data(coin: Coin, tx: Sender<MarketInput>) -> Result<(), s
 /// Consumes discovered addresses and requests their clearinghouse states at a
 /// controlled rate. A single reusable client and interval keep the REST API
 /// work outside the market-data consumer.
-pub async fn hl_account_state_scanner(mut address_rx: Receiver<String>) {
+pub async fn hl_account_state_scanner(
+    mut account_lookup_rx: Receiver<AccountLookupRequest>,
+    position_update_tx: Sender<PositionUpdate>,
+) {
     let client = hypercore::mainnet();
     let mut request_interval = tokio::time::interval(CLEARINGHOUSE_REQUEST_INTERVAL);
     request_interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
 
-    while let Some(address) = address_rx.recv().await {
+    while let Some(request) = account_lookup_rx.recv().await {
         request_interval.tick().await;
+
+        let AccountLookupRequest { address, coin } = request;
 
         // Parse string into usable Addresses
         let user = match address.parse::<Address>() {
@@ -105,11 +116,13 @@ pub async fn hl_account_state_scanner(mut address_rx: Receiver<String>) {
 
         match client.clearinghouse_state(user, None).await {
             Ok(state) => {
-                log::info!(
-                    "Loaded account {address}: {} open position(s), state time {}",
-                    state.asset_positions.len(),
-                    state.time
-                );
+                let position =
+                    filter_whale_position(&address, &state, coin, MINIMUM_WHALE_POSITION_USD);
+
+                let update = PositionUpdate { address, position };
+                if position_update_tx.send(update).await.is_err() {
+                    return;
+                }
             }
             Err(error) => {
                 log::warn!("Could not load clearinghouse state for {address}: {error}");

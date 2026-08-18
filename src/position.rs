@@ -4,6 +4,7 @@ use hypersdk::{
     Decimal,
     hypercore::{AssetPosition, ClearinghouseState, PositionData},
 };
+use tokio::sync::mpsc::Receiver;
 
 use crate::{config::hyperliquid_time_to_system_time, market::Coin};
 
@@ -18,7 +19,39 @@ pub struct FilteredPosition {
     pub updated_at: SystemTime,
 }
 
-/// Returst position data for the requested coin
+/// Requests an authoritative account lookup for one coin.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AccountLookupRequest {
+    pub address: String,
+    pub coin: Coin,
+}
+
+/// The result of successfully checking an account. `None` means that the
+/// account no longer has a position that qualifies for whale monitoring.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PositionUpdate {
+    pub address: String,
+    pub position: Option<FilteredPosition>,
+}
+
+/// Temporarily displays position updates. This consumer will become the
+/// whale-position tracker when persistent state is added.
+pub async fn run_position_update_consumer(mut position_update_rx: Receiver<PositionUpdate>) {
+    while let Some(update) = position_update_rx.recv().await {
+        if let Some(position) = update.position {
+            log::info!(
+                "Whale {}: {} {} worth ${}, liquidation at ${}",
+                position.address,
+                position.coin,
+                position.signed_size,
+                position.position_usd,
+                position.liquidation_price
+            );
+        }
+    }
+}
+
+/// Returns position data for the requested coin.
 fn get_position_by_coin(states: &[AssetPosition], coin: Coin) -> Option<&PositionData> {
     states
         .iter()
