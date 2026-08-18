@@ -10,6 +10,7 @@ pub const POSITION_UPDATE_BUFFER: usize = 256;
 // Hyperliquid REST pacing. A 125 ms gap allows at most eight requests/second.
 pub const CLEARINGHOUSE_REQUEST_INTERVAL: Duration = Duration::from_millis(125);
 pub const MINIMUM_WHALE_POSITION_USD: Decimal = dec!(1_000_000);
+pub const LIQUIDATION_BUCKET_SIZE_USD: Decimal = dec!(100);
 
 // Rolling volatility window.
 pub const VOLATILITY_WINDOW_DURATION: Duration = Duration::from_secs(60);

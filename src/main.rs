@@ -1,6 +1,7 @@
 mod app;
 mod config;
 mod hyperliquid;
+mod liquidation;
 mod market;
 mod position;
 mod price_data;

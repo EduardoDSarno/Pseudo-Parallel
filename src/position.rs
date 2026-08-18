@@ -1,4 +1,7 @@
-use std::{collections::HashMap, time::SystemTime};
+use std::{
+    collections::{BTreeMap, HashMap},
+    time::SystemTime,
+};
 
 use hypersdk::{
     Decimal,
@@ -6,7 +9,11 @@ use hypersdk::{
 };
 use tokio::sync::mpsc::Receiver;
 
-use crate::{config::hyperliquid_time_to_system_time, market::Coin};
+use crate::{
+    config::{LIQUIDATION_BUCKET_SIZE_USD, hyperliquid_time_to_system_time},
+    liquidation::LiquidationLevel,
+    market::Coin,
+};
 
 /// A position that passed the requirements for whale monitoring.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -34,23 +41,116 @@ pub struct PositionUpdate {
     pub position: Option<FilteredPosition>,
 }
 
-/// Temporarily displays position updates. This consumer will become the
-/// whale-position tracker when persistent state is added.
-pub async fn run_position_tracker(mut position_update_rx: Receiver<PositionUpdate>) {
+/// Owns both representations of the current whale data. `whale_positions` is
+/// the source of truth, while `liquidation_levels` is updated from each change.
+struct WhalePositionTracker {
+    whale_positions: HashMap<String, FilteredPosition>,
+    liquidation_levels: BTreeMap<Decimal, LiquidationLevel>,
+    /// price distance covered by each liquidation level (config)
+    bucket_size: Decimal,
+}
 
-    let mut whale_positions = HashMap::new();
+impl WhalePositionTracker {
+    fn new(bucket_size: Decimal) -> Self {
+        assert!(bucket_size > Decimal::ZERO, "bucket size must be positive");
 
-    while let Some(update) = position_update_rx.recv().await {
-        match update.position {
-            Some(position) => 
-            {
-                whale_positions.insert(update.address, position);
+        Self {
+            whale_positions: HashMap::new(),
+            liquidation_levels: BTreeMap::new(),
+            bucket_size,
+        }
+    }
+
+    /// Applies one authoritative account result to both maps. Keeping this in
+    /// one method prevents the positions and liquidation levels from drifting.
+    fn apply(&mut self, update: PositionUpdate) {
+        match update.position 
+        {
+            // add or update the wallet
+            Some(position) => {
+                // Calculate the new contribution before moving the position
+                // into the HashMap.
+                let new_bucket = self.bucket_price(position.liquidation_price);
+                let new_estimated_usd = Self::estimated_liquidation_usd(&position);
+
+                // HashMap::insert returns the position previously stored for
+                // this address, so we know which old level must be decreased.
+                let previous = self.whale_positions.insert(update.address, position);
+
+                if let Some(previous) = previous {
+                    self.remove_from_level(&previous);
+                }
+
+                self.add_to_level(new_bucket, new_estimated_usd);
             }
-            None => {
-                // removes it and returns Some(old_position) or changes nothing and returns None
-                whale_positions.remove(&update.address);
+            // remove the wallet if previously stored
+            // meaning the new clearinghouse response says this wallet does not currently 
+            // have a qualifying whale position
+            None => 
+            {
+                // HashMap::remove gives us the old position needed to subtract
+                // its exact contribution from the previous liquidation level.
+                if let Some(previous) = self.whale_positions.remove(&update.address) {
+                    self.remove_from_level(&previous);
+                }
             }
         }
+    }
+
+    fn add_to_level(&mut self, bucket_price: Decimal, estimated_usd: Decimal) {
+        // entry creates a new empty level only when this bucket does not exist.
+        let level = self.liquidation_levels.entry(bucket_price).or_default();
+        level.estimated_liquidation_usd += estimated_usd;
+        level.position_count += 1;
+    }
+
+    fn remove_from_level(&mut self, position: &FilteredPosition) {
+        let bucket_price = self.bucket_price(position.liquidation_price);
+        let estimated_usd = Self::estimated_liquidation_usd(position);
+
+        let should_remove_level =
+            if let Some(level) = self.liquidation_levels.get_mut(&bucket_price) {
+                // A stored position must already have one matching level entry.
+
+                // checking count before decrementing to avoid
+                // usize out of bounds
+                debug_assert!(level.position_count > 0);
+                debug_assert!(level.estimated_liquidation_usd >= estimated_usd);
+
+                level.estimated_liquidation_usd -= estimated_usd;
+                level.position_count -= 1;
+                // returns true if there's no more elements in the bucket
+                level.position_count == 0
+            } else {
+                debug_assert!(false, "stored position had no liquidation level");
+                false
+            };
+
+        // Remove empty buckets instead of leaving zero-value levels in the map.
+        if should_remove_level {
+            self.liquidation_levels.remove(&bucket_price);
+        }
+    }
+
+    /// returns the bucket a position will go bases on liquidation price
+    fn bucket_price(&self, liquidation_price: Decimal) -> Decimal {
+        (liquidation_price / self.bucket_size).floor() * self.bucket_size
+    }
+
+    /// returns amount of usd that will be liquidated on the position
+    fn estimated_liquidation_usd(position: &FilteredPosition) -> Decimal {
+        position.signed_size.abs() * position.liquidation_price
+    }
+}
+
+/// Receives filtered position updates and keeps the whale position and
+/// liquidation-level maps alive for the lifetime of this task.
+pub async fn run_position_tracker(mut position_update_rx: Receiver<PositionUpdate>) {
+    let mut tracker = WhalePositionTracker::new(LIQUIDATION_BUCKET_SIZE_USD);
+
+    // recv().await pauses this task without dropping the two maps above.
+    while let Some(update) = position_update_rx.recv().await {
+        tracker.apply(update);
     }
 }
 
@@ -97,6 +197,8 @@ pub fn filter_whale_position(
 
 #[cfg(test)]
 mod tests {
+    use std::time::UNIX_EPOCH;
+
     use hypersdk::{
         Decimal, dec,
         hypercore::{
@@ -105,7 +207,7 @@ mod tests {
         },
     };
 
-    use super::filter_whale_position;
+    use super::{FilteredPosition, PositionUpdate, WhalePositionTracker, filter_whale_position};
     use crate::market::Coin;
 
     fn clearinghouse_state(
@@ -154,6 +256,28 @@ mod tests {
         }
     }
 
+    fn filtered_position(
+        address: &str,
+        signed_size: Decimal,
+        liquidation_price: Decimal,
+    ) -> FilteredPosition {
+        FilteredPosition {
+            address: address.to_owned(),
+            coin: Coin::Btc,
+            signed_size,
+            position_usd: signed_size.abs() * dec!(100_000),
+            liquidation_price,
+            updated_at: UNIX_EPOCH,
+        }
+    }
+
+    fn update(position: FilteredPosition) -> PositionUpdate {
+        PositionUpdate {
+            address: position.address.clone(),
+            position: Some(position),
+        }
+    }
+
     #[test]
     fn transforms_a_qualifying_whale_position() {
         let state = clearinghouse_state("BTC", dec!(-12.5), dec!(1_250_000), Some(dec!(105_000)));
@@ -184,5 +308,54 @@ mod tests {
         let state = clearinghouse_state("BTC", dec!(20), dec!(2_000_000), None);
 
         assert!(filter_whale_position("wallet", &state, Coin::Btc, dec!(1_000_000)).is_none());
+    }
+
+    #[test]
+    fn combines_positions_inside_the_same_liquidation_bucket() {
+        let mut tracker = WhalePositionTracker::new(dec!(100));
+
+        tracker.apply(update(filtered_position("alice", dec!(10), dec!(95_120))));
+        tracker.apply(update(filtered_position("bob", dec!(-5), dec!(95_180))));
+
+        let level = tracker
+            .liquidation_levels
+            .get(&dec!(95_100))
+            .expect("combined level should exist");
+
+        assert_eq!(tracker.whale_positions.len(), 2);
+        assert_eq!(level.position_count, 2);
+        assert_eq!(level.estimated_liquidation_usd, dec!(1_427_100));
+    }
+
+    #[test]
+    fn moving_a_position_updates_only_its_old_and_new_levels() {
+        let mut tracker = WhalePositionTracker::new(dec!(100));
+
+        tracker.apply(update(filtered_position("alice", dec!(10), dec!(95_120))));
+        tracker.apply(update(filtered_position("alice", dec!(12), dec!(96_020))));
+
+        assert!(!tracker.liquidation_levels.contains_key(&dec!(95_100)));
+
+        let level = tracker
+            .liquidation_levels
+            .get(&dec!(96_000))
+            .expect("new level should exist");
+        assert_eq!(tracker.whale_positions.len(), 1);
+        assert_eq!(level.position_count, 1);
+        assert_eq!(level.estimated_liquidation_usd, dec!(1_152_240));
+    }
+
+    #[test]
+    fn removing_a_position_removes_its_empty_level() {
+        let mut tracker = WhalePositionTracker::new(dec!(100));
+        tracker.apply(update(filtered_position("alice", dec!(10), dec!(95_120))));
+
+        tracker.apply(PositionUpdate {
+            address: "alice".to_owned(),
+            position: None,
+        });
+
+        assert!(tracker.whale_positions.is_empty());
+        assert!(tracker.liquidation_levels.is_empty());
     }
 }
