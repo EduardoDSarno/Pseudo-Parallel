@@ -9,7 +9,7 @@ use crate::{
     },
     hyperliquid::{hl_account_state_scanner, hl_market_data},
     market::{Coin, MarketInput},
-    position::{AccountLookupRequest, run_position_update_consumer},
+    position::{AccountLookupRequest, run_position_tracker},
     price_data::{PricePoint, PriceWindow},
     volatility::{VolatilityDetector, evaluate_volatility},
 };
@@ -36,7 +36,7 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
     ));
 
     // Consume the position updates created by the account scanner.
-    let position_update_task = tokio::spawn(run_position_update_consumer(position_update_rx));
+    let position_update_task = tokio::spawn(run_position_tracker(position_update_rx));
 
     // Process market messages in this task until the market channel closes.
     process_market_inputs(market_rx, account_lookup_tx).await;
@@ -62,7 +62,6 @@ async fn process_market_inputs(
 
     // Keep the volatility cooldown state between price messages.
     let mut detector = VolatilityDetector::new();
-
     // Avoid sending the same address to the account scanner more than once.
     let mut discovered_addresses = HashSet::new();
 

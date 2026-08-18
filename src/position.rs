@@ -1,4 +1,4 @@
-use std::time::SystemTime;
+use std::{collections::HashMap, time::SystemTime};
 
 use hypersdk::{
     Decimal,
@@ -36,17 +36,20 @@ pub struct PositionUpdate {
 
 /// Temporarily displays position updates. This consumer will become the
 /// whale-position tracker when persistent state is added.
-pub async fn run_position_update_consumer(mut position_update_rx: Receiver<PositionUpdate>) {
+pub async fn run_position_tracker(mut position_update_rx: Receiver<PositionUpdate>) {
+
+    let mut whale_positions = HashMap::new();
+
     while let Some(update) = position_update_rx.recv().await {
-        if let Some(position) = update.position {
-            log::info!(
-                "Whale {}: {} {} worth ${}, liquidation at ${}",
-                position.address,
-                position.coin,
-                position.signed_size,
-                position.position_usd,
-                position.liquidation_price
-            );
+        match update.position {
+            Some(position) => 
+            {
+                whale_positions.insert(update.address, position);
+            }
+            None => {
+                // removes it and returns Some(old_position) or changes nothing and returns None
+                whale_positions.remove(&update.address);
+            }
         }
     }
 }
