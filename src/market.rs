@@ -1,43 +1,13 @@
-use std::{fmt, time::SystemTime};
+use std::time::SystemTime;
 
 use chrono::{DateTime, Local};
 use hypersdk::{Address, Decimal};
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum Coin {
-    Btc,
-}
-
-/// The latest market price shared with consumers that do not need every
-/// individual price message.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct CurrentPrice {
-    pub coin: Coin,
-    pub mark_price: Decimal,
-    pub observed_at: SystemTime,
-}
+use crate::coin::Coin;
 
 /// Converts a typed Hyperliquid address for display or text storage.
 pub fn format_address(address: Address) -> String {
     address.to_string()
-}
-
-impl Coin {
-    /// Returns the Hyperliquid symbol for the coin.
-    /// In other words, it just converts our enum into a static string.
-    pub fn as_hyperliquid_symbol(self) -> &'static str {
-        match self {
-            Self::Btc => "BTC",
-        }
-    }
-}
-
-/// Display the coin as the Hyperliquid symbol.
-/// This is useful for logging and debugging.
-impl fmt::Display for Coin {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(self.as_hyperliquid_symbol())
-    }
 }
 
 /// Input messages for the market data consumer.
@@ -130,13 +100,8 @@ mod tests {
 
     use hypersdk::{Address, Decimal};
 
-    use super::{Coin, MarketInput};
-
-    #[test]
-    fn btc_uses_hyperliquid_btc_symbol() {
-        assert_eq!(Coin::Btc.as_hyperliquid_symbol(), "BTC");
-        assert_eq!(Coin::Btc.to_string(), "BTC");
-    }
+    use super::MarketInput;
+    use crate::coin::Coin;
 
     #[test]
     fn valid_mark_price_creates_price_update() {
