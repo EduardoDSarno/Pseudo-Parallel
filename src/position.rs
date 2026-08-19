@@ -7,12 +7,12 @@ use hypersdk::{
     Decimal,
     hypercore::{AssetPosition, ClearinghouseState, PositionData},
 };
-use tokio::sync::mpsc::Receiver;
+use tokio::sync::{mpsc::Receiver, watch};
 
 use crate::{
     config::{LIQUIDATION_BUCKET_SIZE_USD, hyperliquid_time_to_system_time},
-    liquidation::LiquidationLevel,
-    market::Coin,
+    liquidation::{HeatmapSnapshot, LiquidationLevel},
+    market::{Coin, CurrentPrice},
 };
 
 /// A position that passed the requirements for whale monitoring.
@@ -141,16 +141,65 @@ impl WhalePositionTracker {
     fn estimated_liquidation_usd(position: &FilteredPosition) -> Decimal {
         position.signed_size.abs() * position.liquidation_price
     }
+
+    /// Builds and prints the current heatmap only after the first market price
+    /// has arrived. The underlying maps remain owned by this tracker.
+    fn display_heatmap(&self, current_price: Option<CurrentPrice>) {
+        let Some(current_price) = current_price else {
+            return;
+        };
+
+        let Some(snapshot) = HeatmapSnapshot::build(
+            current_price.coin,
+            current_price.mark_price,
+            &self.liquidation_levels,
+            SystemTime::now(),
+        ) else {
+            return;
+        };
+
+        println!("Heatmap snapshot: {snapshot:#?}");
+    }
 }
 
 /// Receives filtered position updates and keeps the whale position and
 /// liquidation-level maps alive for the lifetime of this task.
-pub async fn run_position_tracker(mut position_update_rx: Receiver<PositionUpdate>) {
+pub async fn run_position_tracker(
+    mut position_update_rx: Receiver<PositionUpdate>,
+    mut current_price_rx: watch::Receiver<Option<CurrentPrice>>,
+) {
     let mut tracker = WhalePositionTracker::new(LIQUIDATION_BUCKET_SIZE_USD);
+    let mut price_channel_open = true;
 
-    // recv().await pauses this task without dropping the two maps above.
-    while let Some(update) = position_update_rx.recv().await {
-        tracker.apply(update);
+    loop {
+        // Wait for either kind of input without blocking the other task.
+        tokio::select! {
+            update = position_update_rx.recv() => {
+                let Some(update) = update else {
+                    break;
+                };
+
+                tracker.apply(update);
+
+                // borrow_and_update also marks this price as already seen, so
+                // select does not rebuild twice for the same price version.
+                let current_price = *current_price_rx.borrow_and_update();
+                tracker.display_heatmap(current_price);
+            }
+            price_change = current_price_rx.changed(), if price_channel_open => {
+                match price_change {
+                    Ok(()) => {
+                        let current_price = *current_price_rx.borrow_and_update();
+                        tracker.display_heatmap(current_price);
+                    }
+                    Err(_) => {
+                        // Continue consuming remaining positions if the market
+                        // price producer closes before the position channel.
+                        price_channel_open = false;
+                    }
+                }
+            }
+        }
     }
 }
 

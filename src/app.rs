@@ -1,6 +1,9 @@
 use std::collections::HashSet;
 
-use tokio::sync::mpsc::{self, Receiver, Sender};
+use tokio::sync::{
+    mpsc::{self, Receiver, Sender},
+    watch,
+};
 
 use crate::{
     config::{
@@ -8,7 +11,7 @@ use crate::{
         VOLATILITY_WINDOW_DURATION, VOLATILITY_WINDOW_MAX_POINTS,
     },
     hyperliquid::{hl_account_state_scanner, hl_market_data},
-    market::{Coin, MarketInput},
+    market::{Coin, CurrentPrice, MarketInput},
     position::{AccountLookupRequest, run_position_tracker},
     price_data::{PricePoint, PriceWindow},
     volatility::{VolatilityDetector, evaluate_volatility},
@@ -26,6 +29,10 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
     // Filtered results go from the account scanner to the position consumer.
     let (position_update_tx, position_update_rx) = mpsc::channel(POSITION_UPDATE_BUFFER);
 
+    // Unlike mpsc, watch keeps only the latest market price. The initial value
+    // is None because positions may arrive before the first price message.
+    let (current_price_tx, current_price_rx) = watch::channel::<Option<CurrentPrice>>(None);
+
     // Receive prices and trades from the Hyperliquid WebSocket.
     let market_data_task = tokio::spawn(hl_market_data(Coin::Btc, market_tx));
 
@@ -36,10 +43,11 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
     ));
 
     // Consume the position updates created by the account scanner.
-    let position_update_task = tokio::spawn(run_position_tracker(position_update_rx));
+    let position_update_task =
+        tokio::spawn(run_position_tracker(position_update_rx, current_price_rx));
 
     // Process market messages in this task until the market channel closes.
-    process_market_inputs(market_rx, account_lookup_tx).await;
+    process_market_inputs(market_rx, account_lookup_tx, current_price_tx).await;
 
     // If the producer panicked or the WebSocket ended unexpectedly, surface
     // that failure instead of silently exiting the application.
@@ -55,6 +63,7 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
 async fn process_market_inputs(
     mut market_rx: Receiver<MarketInput>,
     account_lookup_tx: Sender<AccountLookupRequest>,
+    current_price_tx: watch::Sender<Option<CurrentPrice>>,
 ) {
     // Keep the recent prices used by the volatility calculation.
     let mut price_window =
@@ -77,6 +86,14 @@ async fn process_market_inputs(
             } => {
                 // Add the mark price to the rolling volatility window.
                 price_window.push(PricePoint::new(mark_price, timestamp));
+
+                // Publish only the latest price to the heatmap tracker. A slow
+                // consumer does not need to process stale prices first.
+                current_price_tx.send_replace(Some(CurrentPrice {
+                    coin,
+                    mark_price,
+                    observed_at: timestamp,
+                }));
 
                 // Check the latest rolling-window movement for a spike.
                 if let Some(change) = price_window.percentage_change() {

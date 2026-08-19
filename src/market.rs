@@ -8,6 +8,15 @@ pub enum Coin {
     Btc,
 }
 
+/// The latest market price shared with consumers that do not need every
+/// individual price message.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct CurrentPrice {
+    pub coin: Coin,
+    pub mark_price: Decimal,
+    pub observed_at: SystemTime,
+}
+
 impl Coin {
     /// Returns the Hyperliquid symbol for the coin.
     /// In other words, it just converts our enum into a static string.
