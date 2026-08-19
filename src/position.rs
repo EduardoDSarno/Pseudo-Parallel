@@ -4,13 +4,19 @@ use std::{
 };
 
 use hypersdk::{
-    Decimal,
+    Address, Decimal,
     hypercore::{AssetPosition, ClearinghouseState, PositionData},
 };
-use tokio::sync::{mpsc::Receiver, watch};
+use tokio::{
+    sync::{mpsc::Receiver, watch},
+    time::Instant,
+};
 
 use crate::{
-    config::{LIQUIDATION_BUCKET_SIZE_USD, hyperliquid_time_to_system_time},
+    config::{
+        ADDRESS_REFRESH_STATE_COOLDOWN, LIQUIDATION_BUCKET_SIZE_USD,
+        hyperliquid_time_to_system_time,
+    },
     liquidation::{HeatmapSnapshot, LiquidationLevel},
     market::{Coin, CurrentPrice},
 };
@@ -18,7 +24,7 @@ use crate::{
 /// A position that passed the requirements for whale monitoring.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FilteredPosition {
-    pub address: String,
+    pub address: Address,
     pub coin: Coin,
     pub signed_size: Decimal,
     pub position_usd: Decimal,
@@ -29,7 +35,7 @@ pub struct FilteredPosition {
 /// Requests an authoritative account lookup for one coin.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AccountLookupRequest {
-    pub address: String,
+    pub address: Address,
     pub coin: Coin,
 }
 
@@ -37,14 +43,14 @@ pub struct AccountLookupRequest {
 /// account no longer has a position that qualifies for whale monitoring.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PositionUpdate {
-    pub address: String,
+    pub address: Address,
     pub position: Option<FilteredPosition>,
 }
 
 /// Owns both representations of the current whale data. `whale_positions` is
 /// the source of truth, while `liquidation_levels` is updated from each change.
 struct WhalePositionTracker {
-    whale_positions: HashMap<String, FilteredPosition>,
+    whale_positions: HashMap<Address, FilteredPosition>,
     liquidation_levels: BTreeMap<Decimal, LiquidationLevel>,
     /// price distance covered by each liquidation level (config)
     bucket_size: Decimal,
@@ -64,8 +70,7 @@ impl WhalePositionTracker {
     /// Applies one authoritative account result to both maps. Keeping this in
     /// one method prevents the positions and liquidation levels from drifting.
     fn apply(&mut self, update: PositionUpdate) {
-        match update.position 
-        {
+        match update.position {
             // add or update the wallet
             Some(position) => {
                 // Calculate the new contribution before moving the position
@@ -84,10 +89,9 @@ impl WhalePositionTracker {
                 self.add_to_level(new_bucket, new_estimated_usd);
             }
             // remove the wallet if previously stored
-            // meaning the new clearinghouse response says this wallet does not currently 
+            // meaning the new clearinghouse response says this wallet does not currently
             // have a qualifying whale position
-            None => 
-            {
+            None => {
                 // HashMap::remove gives us the old position needed to subtract
                 // its exact contribution from the previous liquidation level.
                 if let Some(previous) = self.whale_positions.remove(&update.address) {
@@ -214,12 +218,12 @@ fn get_position_by_coin(states: &[AssetPosition], coin: Coin) -> Option<&Positio
 /// Finds the requested position and transforms it only when it is useful for
 /// whale-liquidation monitoring.
 pub fn filter_whale_position(
-    address: &str,
+    address: Address,
     state: &ClearinghouseState,
     coin: Coin,
     minimum_position_usd: Decimal,
 ) -> Option<FilteredPosition> {
-    if address.is_empty() || minimum_position_usd < Decimal::ZERO {
+    if address == Address::ZERO || minimum_position_usd < Decimal::ZERO {
         return None;
     }
 
@@ -235,7 +239,7 @@ pub fn filter_whale_position(
     }
 
     Some(FilteredPosition {
-        address: address.to_owned(),
+        address,
         coin,
         signed_size: position.szi,
         position_usd,
@@ -244,12 +248,39 @@ pub fn filter_whale_position(
     })
 }
 
+pub struct AddressRefreshState {
+    last_requested_at: Instant,
+    needs_refresh: bool,
+}
+
+impl AddressRefreshState {
+    pub fn new() -> Self {
+        Self {
+            last_requested_at: Instant::now(),
+            needs_refresh: false,
+        }
+    }
+
+    /// Returns true when enough time has passed to queue another account
+    /// request. Activity during the cooldown is remembered for a later refresh.
+    pub fn refresh(&mut self) -> bool {
+        if self.last_requested_at.elapsed() < ADDRESS_REFRESH_STATE_COOLDOWN {
+            self.needs_refresh = true;
+            return false;
+        }
+
+        self.last_requested_at = Instant::now();
+        self.needs_refresh = false;
+        true
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::time::UNIX_EPOCH;
 
     use hypersdk::{
-        Decimal, dec,
+        Address, Decimal, dec,
         hypercore::{
             AssetPosition, ClearinghouseState, CumulativeFunding, Leverage, LeverageType,
             MarginSummary, PositionData, PositionType,
@@ -305,13 +336,17 @@ mod tests {
         }
     }
 
+    fn address(value: &str) -> Address {
+        value.parse().expect("test address should be valid")
+    }
+
     fn filtered_position(
-        address: &str,
+        address: Address,
         signed_size: Decimal,
         liquidation_price: Decimal,
     ) -> FilteredPosition {
         FilteredPosition {
-            address: address.to_owned(),
+            address,
             coin: Coin::Btc,
             signed_size,
             position_usd: signed_size.abs() * dec!(100_000),
@@ -322,7 +357,7 @@ mod tests {
 
     fn update(position: FilteredPosition) -> PositionUpdate {
         PositionUpdate {
-            address: position.address.clone(),
+            address: position.address,
             position: Some(position),
         }
     }
@@ -332,7 +367,7 @@ mod tests {
         let state = clearinghouse_state("BTC", dec!(-12.5), dec!(1_250_000), Some(dec!(105_000)));
 
         let position = filter_whale_position(
-            "0x1111111111111111111111111111111111111111",
+            address("0x1111111111111111111111111111111111111111"),
             &state,
             Coin::Btc,
             dec!(1_000_000),
@@ -349,22 +384,46 @@ mod tests {
     fn rejects_a_position_below_the_whale_threshold() {
         let state = clearinghouse_state("BTC", dec!(5), dec!(999_999), Some(dec!(90_000)));
 
-        assert!(filter_whale_position("wallet", &state, Coin::Btc, dec!(1_000_000)).is_none());
+        assert!(
+            filter_whale_position(
+                address("0x1111111111111111111111111111111111111111"),
+                &state,
+                Coin::Btc,
+                dec!(1_000_000),
+            )
+            .is_none()
+        );
     }
 
     #[test]
     fn rejects_a_position_without_a_liquidation_price() {
         let state = clearinghouse_state("BTC", dec!(20), dec!(2_000_000), None);
 
-        assert!(filter_whale_position("wallet", &state, Coin::Btc, dec!(1_000_000)).is_none());
+        assert!(
+            filter_whale_position(
+                address("0x1111111111111111111111111111111111111111"),
+                &state,
+                Coin::Btc,
+                dec!(1_000_000),
+            )
+            .is_none()
+        );
     }
 
     #[test]
     fn combines_positions_inside_the_same_liquidation_bucket() {
         let mut tracker = WhalePositionTracker::new(dec!(100));
 
-        tracker.apply(update(filtered_position("alice", dec!(10), dec!(95_120))));
-        tracker.apply(update(filtered_position("bob", dec!(-5), dec!(95_180))));
+        tracker.apply(update(filtered_position(
+            address("0x1111111111111111111111111111111111111111"),
+            dec!(10),
+            dec!(95_120),
+        )));
+        tracker.apply(update(filtered_position(
+            address("0x2222222222222222222222222222222222222222"),
+            dec!(-5),
+            dec!(95_180),
+        )));
 
         let level = tracker
             .liquidation_levels
@@ -380,8 +439,9 @@ mod tests {
     fn moving_a_position_updates_only_its_old_and_new_levels() {
         let mut tracker = WhalePositionTracker::new(dec!(100));
 
-        tracker.apply(update(filtered_position("alice", dec!(10), dec!(95_120))));
-        tracker.apply(update(filtered_position("alice", dec!(12), dec!(96_020))));
+        let alice = address("0x1111111111111111111111111111111111111111");
+        tracker.apply(update(filtered_position(alice, dec!(10), dec!(95_120))));
+        tracker.apply(update(filtered_position(alice, dec!(12), dec!(96_020))));
 
         assert!(!tracker.liquidation_levels.contains_key(&dec!(95_100)));
 
@@ -397,10 +457,11 @@ mod tests {
     #[test]
     fn removing_a_position_removes_its_empty_level() {
         let mut tracker = WhalePositionTracker::new(dec!(100));
-        tracker.apply(update(filtered_position("alice", dec!(10), dec!(95_120))));
+        let alice = address("0x1111111111111111111111111111111111111111");
+        tracker.apply(update(filtered_position(alice, dec!(10), dec!(95_120))));
 
         tracker.apply(PositionUpdate {
-            address: "alice".to_owned(),
+            address: alice,
             position: None,
         });
 

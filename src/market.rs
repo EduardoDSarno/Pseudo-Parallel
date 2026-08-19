@@ -17,6 +17,11 @@ pub struct CurrentPrice {
     pub observed_at: SystemTime,
 }
 
+/// Converts a typed Hyperliquid address for display or text storage.
+pub fn format_address(address: Address) -> String {
+    address.to_string()
+}
+
 impl Coin {
     /// Returns the Hyperliquid symbol for the coin.
     /// In other words, it just converts our enum into a static string.
@@ -46,8 +51,8 @@ pub enum MarketInput {
     },
     TradeObserved {
         coin: Coin,
-        buyer: String,
-        seller: String,
+        buyer: Address,
+        seller: Address,
         timestamp: SystemTime,
     },
 }
@@ -81,8 +86,8 @@ impl MarketInput {
 
         Some(Self::TradeObserved {
             coin,
-            buyer: buyer.to_string(),
-            seller: seller.to_string(),
+            buyer,
+            seller,
             timestamp,
         })
     }
@@ -108,6 +113,8 @@ impl MarketInput {
                 timestamp,
             } => {
                 let local_time: DateTime<Local> = (*timestamp).into();
+                let buyer = format_address(*buyer);
+                let seller = format_address(*seller);
                 println!(
                     "{coin} trade buyer: {buyer} seller: {seller} at {}",
                     local_time.format("%Y-%m-%d %H:%M:%S%.3f")
@@ -179,8 +186,8 @@ mod tests {
                 timestamp: observed_at,
             }) => {
                 assert_eq!(coin, Coin::Btc);
-                assert_eq!(observed_buyer, buyer.to_string());
-                assert_eq!(observed_seller, seller.to_string());
+                assert_eq!(observed_buyer, buyer);
+                assert_eq!(observed_seller, seller);
                 assert_eq!(observed_at, timestamp);
             }
             _ => panic!("a trade with real participants should create a market input"),

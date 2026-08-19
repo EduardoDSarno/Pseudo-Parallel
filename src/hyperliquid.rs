@@ -1,8 +1,8 @@
 use std::time::SystemTime;
 
 use futures::StreamExt;
+use hypersdk::hypercore;
 use hypersdk::hypercore::{types::*, ws::Event};
-use hypersdk::{Address, hypercore};
 use tokio::{
     sync::mpsc::{Receiver, Sender},
     time::MissedTickBehavior,
@@ -105,19 +105,10 @@ pub async fn hl_account_state_scanner(
 
         let AccountLookupRequest { address, coin } = request;
 
-        // Parse string into usable Addresses
-        let user = match address.parse::<Address>() {
-            Ok(user) => user,
-            Err(error) => {
-                log::warn!("Ignoring invalid Hyperliquid address {address}: {error}");
-                continue;
-            }
-        };
-
-        match client.clearinghouse_state(user, None).await {
+        match client.clearinghouse_state(address, None).await {
             Ok(state) => {
                 let position =
-                    filter_whale_position(&address, &state, coin, MINIMUM_WHALE_POSITION_USD);
+                    filter_whale_position(address, &state, coin, MINIMUM_WHALE_POSITION_USD);
 
                 let update = PositionUpdate { address, position };
                 if position_update_tx.send(update).await.is_err() {

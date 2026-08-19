@@ -1,4 +1,6 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, hash_map::Entry};
+
+use hypersdk::Address;
 
 use tokio::sync::{
     mpsc::{self, Receiver, Sender},
@@ -12,7 +14,7 @@ use crate::{
     },
     hyperliquid::{hl_account_state_scanner, hl_market_data},
     market::{Coin, CurrentPrice, MarketInput},
-    position::{AccountLookupRequest, run_position_tracker},
+    position::{AccountLookupRequest, AddressRefreshState, run_position_tracker},
     price_data::{PricePoint, PriceWindow},
     volatility::{VolatilityDetector, evaluate_volatility},
 };
@@ -71,8 +73,8 @@ async fn process_market_inputs(
 
     // Keep the volatility cooldown state between price messages.
     let mut detector = VolatilityDetector::new();
-    // Avoid sending the same address to the account scanner more than once.
-    let mut discovered_addresses = HashSet::new();
+    // Remember when each typed address was last queued for an account lookup.
+    let mut discovered_addresses: HashMap<Address, AddressRefreshState> = HashMap::new();
 
     // Wait without blocking until the WebSocket task sends the next message.
     while let Some(input) = market_rx.recv().await {
@@ -113,11 +115,19 @@ async fn process_market_inputs(
             } => {
                 // A trade changes both the buyer and seller positions.
                 for address in [buyer, seller] {
-                    // HashSet::insert returns true only for a new address.
-                    if discovered_addresses.insert(address.clone()) {
+                    let should_request = match discovered_addresses.entry(address) {
+                        // A new address always receives its initial lookup.
+                        Entry::Vacant(entry) => {
+                            entry.insert(AddressRefreshState::new());
+                            true
+                        }
+                        // A known address is queued again only after cooldown.
+                        Entry::Occupied(mut entry) => entry.get_mut().refresh(),
+                    };
+
+                    if should_request {
                         let request = AccountLookupRequest { address, coin };
 
-                        // Queue the address without making the REST call here.
                         account_lookup_tx
                             .send(request)
                             .await

@@ -22,6 +22,9 @@ pub const NEW_YORK_OPEN_VOLATILITY_THRESHOLD_PERCENT: Decimal = dec!(0.45);
 pub const WEEKEND_VOLATILITY_THRESHOLD_PERCENT: Decimal = dec!(0.20);
 pub const NORMAL_VOLATILITY_THRESHOLD_PERCENT: Decimal = dec!(0.30);
 
+// Address Refresh State
+pub const ADDRESS_REFRESH_STATE_COOLDOWN: Duration = Duration::from_secs(60);
+
 /// Converts a millisecond timestamp supplied by Hyperliquid into Rust's
 /// `SystemTime`. Returns `None` if the timestamp exceeds the supported range.
 pub fn hyperliquid_time_to_system_time(timestamp_ms: u64) -> Option<SystemTime> {
