@@ -7,18 +7,13 @@ use hypersdk::{
     Address, Decimal,
     hypercore::{AssetPosition, ClearinghouseState, PositionData},
 };
-use tokio::{
-    sync::{mpsc::Receiver, watch},
-    time::Instant,
-};
+use tokio::sync::{mpsc::Receiver, watch};
 
 use crate::{
-    config::{
-        ADDRESS_REFRESH_STATE_COOLDOWN, LIQUIDATION_BUCKET_SIZE_USD,
-        hyperliquid_time_to_system_time,
-    },
+    coin::Coin,
+    config::{LIQUIDATION_BUCKET_SIZE_USD, hyperliquid_time_to_system_time},
     liquidation::{HeatmapSnapshot, LiquidationLevel},
-    market::{Coin, CurrentPrice},
+    price_data::CurrentPrice,
 };
 
 /// A position that passed the requirements for whale monitoring.
@@ -30,13 +25,6 @@ pub struct FilteredPosition {
     pub position_usd: Decimal,
     pub liquidation_price: Decimal,
     pub updated_at: SystemTime,
-}
-
-/// Requests an authoritative account lookup for one coin.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct AccountLookupRequest {
-    pub address: Address,
-    pub coin: Coin,
 }
 
 /// The result of successfully checking an account. `None` means that the
@@ -248,71 +236,9 @@ pub fn filter_whale_position(
     })
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum AddressRefreshAction {
-    RequestNow,
-    ScheduleAt(Instant),
-    Nothing,
-}
-
-pub struct AddressRefreshState {
-    last_requested_at: Instant,
-    needs_refresh: bool,
-}
-
-impl AddressRefreshState {
-    pub fn new() -> Self {
-        Self {
-            last_requested_at: Instant::now(),
-            needs_refresh: false,
-        }
-    }
-
-    /// Decides whether current activity should request an account immediately,
-    /// schedule one trailing refresh, or reuse an existing scheduled refresh.
-    pub fn refresh(&mut self) -> AddressRefreshAction {
-        self.refresh_at(Instant::now())
-    }
-
-    fn refresh_at(&mut self, now: Instant) -> AddressRefreshAction {
-        if now.duration_since(self.last_requested_at) < ADDRESS_REFRESH_STATE_COOLDOWN {
-            if self.needs_refresh {
-                return AddressRefreshAction::Nothing;
-            }
-
-            self.needs_refresh = true;
-            return AddressRefreshAction::ScheduleAt(
-                self.last_requested_at + ADDRESS_REFRESH_STATE_COOLDOWN,
-            );
-        }
-
-        self.last_requested_at = now;
-        self.needs_refresh = false;
-        AddressRefreshAction::RequestNow
-    }
-
-    /// Returns true when a scheduled trailing refresh is still needed and due.
-    /// Taking it starts a new cooldown.
-    pub fn take_due_refresh(&mut self) -> bool {
-        self.take_due_refresh_at(Instant::now())
-    }
-
-    fn take_due_refresh_at(&mut self, now: Instant) -> bool {
-        if !self.needs_refresh
-            || now.duration_since(self.last_requested_at) < ADDRESS_REFRESH_STATE_COOLDOWN
-        {
-            return false;
-        }
-
-        self.last_requested_at = now;
-        self.needs_refresh = false;
-        true
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use std::time::{Duration, UNIX_EPOCH};
+    use std::time::UNIX_EPOCH;
 
     use hypersdk::{
         Address, Decimal, dec,
@@ -322,11 +248,8 @@ mod tests {
         },
     };
 
-    use super::{
-        AddressRefreshAction, AddressRefreshState, FilteredPosition, PositionUpdate,
-        WhalePositionTracker, filter_whale_position,
-    };
-    use crate::{config::ADDRESS_REFRESH_STATE_COOLDOWN, market::Coin};
+    use super::{FilteredPosition, PositionUpdate, WhalePositionTracker, filter_whale_position};
+    use crate::coin::Coin;
 
     fn clearinghouse_state(
         coin: &str,
@@ -505,29 +428,5 @@ mod tests {
 
         assert!(tracker.whale_positions.is_empty());
         assert!(tracker.liquidation_levels.is_empty());
-    }
-
-    #[test]
-    fn takes_one_trailing_refresh_after_the_cooldown() {
-        let started_at = tokio::time::Instant::now();
-        let mut state = AddressRefreshState {
-            last_requested_at: started_at,
-            needs_refresh: false,
-        };
-        let just_before_cooldown =
-            started_at + ADDRESS_REFRESH_STATE_COOLDOWN - Duration::from_millis(1);
-        let cooldown_finished = started_at + ADDRESS_REFRESH_STATE_COOLDOWN;
-
-        assert_eq!(
-            state.refresh_at(just_before_cooldown),
-            AddressRefreshAction::ScheduleAt(cooldown_finished)
-        );
-        assert_eq!(
-            state.refresh_at(just_before_cooldown),
-            AddressRefreshAction::Nothing
-        );
-        assert!(!state.take_due_refresh_at(just_before_cooldown));
-        assert!(state.take_due_refresh_at(cooldown_finished));
-        assert!(!state.take_due_refresh_at(cooldown_finished + ADDRESS_REFRESH_STATE_COOLDOWN));
     }
 }
