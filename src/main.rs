@@ -3,6 +3,7 @@ mod app;
 mod coin;
 mod config;
 mod heatmap;
+mod helper;
 mod hyperliquid;
 mod liquidation;
 mod market;

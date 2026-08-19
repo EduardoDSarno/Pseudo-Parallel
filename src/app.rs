@@ -18,6 +18,7 @@ use crate::{
         ACCOUNT_LOOKUP_BUFFER, MARKET_INPUT_BUFFER, POSITION_UPDATE_BUFFER,
         VOLATILITY_WINDOW_DURATION, VOLATILITY_WINDOW_MAX_POINTS,
     },
+    helper::send_account_lookup_request,
     hyperliquid::{hl_account_state_scanner, hl_market_data},
     market::MarketInput,
     position::run_position_tracker,
@@ -83,6 +84,7 @@ async fn process_market_inputs(
     let mut discovered_addresses: HashMap<Address, AddressRefreshState> = HashMap::new();
     // Future refreshes are grouped by deadline so only the earliest one needs
     // an active timer. Each address is added only once per cooldown.
+    // using BTreeMap because refreshes must be processed in deadline order.
     let mut scheduled_refreshes: BTreeMap<Instant, Vec<AccountLookupRequest>> = BTreeMap::new();
 
     loop {
@@ -92,14 +94,21 @@ async fn process_market_inputs(
 
         // Wait for either market data or the earliest scheduled refresh.
         tokio::select! {
-            maybe_input = market_rx.recv() => {
-                let Some(input) = maybe_input else {
+            // Market Data
+            maybe_input = market_rx.recv() =>
+            {
+                // Check for Some valid market Data
+                let Some(input) = maybe_input else
+                {
+                    log::info!("Invalid Input received (None)");
                     break;
                 };
 
+                // Display event in text (console or log)
                 input.display();
 
-                match input {
+                match input
+                {
                     MarketInput::PriceUpdate {
                         coin,
                         mark_price,
@@ -148,13 +157,13 @@ async fn process_market_inputs(
 
                             let request = AccountLookupRequest { address, coin };
 
-                            match refresh_action {
+                            match refresh_action
+                            {
+                                // When accout is ready to be reqeusted
                                 AddressRefreshAction::RequestNow => {
-                                    account_lookup_tx
-                                        .send(request)
-                                        .await
-                                        .expect("account lookup task should remain active");
+                                    send_account_lookup_request(&account_lookup_tx, request).await;
                                 }
+                                // When cooldown is active we add to schedule refresher list
                                 AddressRefreshAction::ScheduleAt(deadline) => {
                                     scheduled_refreshes.entry(deadline).or_default().push(request);
                                 }
@@ -176,14 +185,19 @@ async fn process_market_inputs(
                 let now = Instant::now();
                 let mut due_requests = Vec::new();
 
+                // while there's values inside the refresher
+                // that are some and the deadline as passsed
+                // current time (expired)
                 while scheduled_refreshes
                     .first_key_value()
                     .is_some_and(|(deadline, _)| *deadline <= now)
                 {
+                    // returns the entry with earliest deadline
                     let (_, scheduled_requests) = scheduled_refreshes
                         .pop_first()
                         .expect("the earliest scheduled refresh should exist");
 
+                    // second check for expired accounts
                     for request in scheduled_requests {
                         let is_still_due = discovered_addresses
                             .get_mut(&request.address)
@@ -196,10 +210,7 @@ async fn process_market_inputs(
                 }
 
                 for request in due_requests {
-                    account_lookup_tx
-                        .send(request)
-                        .await
-                        .expect("account lookup task should remain active");
+                    send_account_lookup_request(&account_lookup_tx, request).await;
                 }
             }
         }

@@ -15,10 +15,21 @@ pub struct AccountLookupRequest {
     pub coin: Coin,
 }
 
+/// AddressRefreshAction tells the application what to do after an address appears in a trade.
+/// It represents an action, not the permanent state of the address.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AddressRefreshAction {
+    /// Request now flag is set when an accout can be requested immiediatly
+    /// This happens when, the address is discovered for the first time or
+    /// the address is known, but its cooldown has already expired.
     RequestNow,
+
+    /// Account can not be request yet because it is on a CoolDown, the instant is the
+    /// exact time when the cooldown will finish
     ScheduleAt(Instant),
+    /// No new work needs to be created.
+    /// means the address is still inside its cooldown or
+    /// a trailing refresh is already scheduled.
     Nothing,
 }
 
