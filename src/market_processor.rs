@@ -1,0 +1,91 @@
+use std::collections::{BTreeMap, HashMap, hash_map::Entry};
+
+use hypersdk::Address;
+use tokio::{
+    sync::{mpsc::Sender, watch},
+    time::Instant,
+};
+
+use crate::{
+    accounts::{AccountLookupRequest, AddressRefreshAction, AddressRefreshState},
+    helper::send_account_lookup_request,
+    market::MarketInput,
+    price_data::{CurrentPrice, PricePoint, PriceWindow},
+    volatility::{VolatilityDetector, evaluate_volatility},
+};
+
+/// Applies one normalized market event to the price or account-refresh state.
+pub async fn process_market_input(
+    input: MarketInput,
+    price_window: &mut PriceWindow,
+    detector: &mut VolatilityDetector,
+    current_price_tx: &watch::Sender<Option<CurrentPrice>>,
+    discovered_addresses: &mut HashMap<Address, AddressRefreshState>,
+    scheduled_refreshes: &mut BTreeMap<Instant, Vec<AccountLookupRequest>>,
+    account_lookup_tx: &Sender<AccountLookupRequest>,
+) {
+    match input {
+        MarketInput::PriceUpdate {
+            coin,
+            mark_price,
+            timestamp,
+        } => {
+            // Add the mark price to the rolling volatility window.
+            price_window.push(PricePoint::new(mark_price, timestamp));
+
+            // Publish only the latest price to the heatmap tracker. A slow
+            // consumer does not need to process stale prices first.
+            current_price_tx.send_replace(Some(CurrentPrice {
+                coin,
+                mark_price,
+                observed_at: timestamp,
+            }));
+
+            // Check the latest rolling-window movement for a spike.
+            if let Some(change) = price_window.percentage_change() {
+                if let Some(spike) = evaluate_volatility(coin, change, timestamp, detector) {
+                    spike.display();
+                }
+
+                println!("Change inside rolling window: {change}%");
+            }
+        }
+        MarketInput::TradeObserved {
+            coin,
+            buyer,
+            seller,
+            ..
+        } => {
+            // A trade changes both the buyer and seller positions.
+            for address in [buyer, seller] {
+                let refresh_action = match discovered_addresses.entry(address) {
+                    // A new address always receives its initial lookup.
+                    Entry::Vacant(entry) => {
+                        entry.insert(AddressRefreshState::new());
+                        AddressRefreshAction::RequestNow
+                    }
+                    // A known address is either requested now, scheduled once,
+                    // or already represented in the delayed queue.
+                    Entry::Occupied(mut entry) => entry.get_mut().refresh(),
+                };
+
+                let request = AccountLookupRequest { address, coin };
+
+                match refresh_action {
+                    // When an account is ready to be requested.
+                    AddressRefreshAction::RequestNow => {
+                        send_account_lookup_request(account_lookup_tx, request).await;
+                    }
+                    // When cooldown is active, add it to the scheduled refreshes.
+                    AddressRefreshAction::ScheduleAt(deadline) => {
+                        scheduled_refreshes
+                            .entry(deadline)
+                            .or_default()
+                            .push(request);
+                    }
+                    AddressRefreshAction::Nothing => {}
+                }
+            }
+        }
+    }
+}

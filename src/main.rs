@@ -7,6 +7,7 @@ mod helper;
 mod hyperliquid;
 mod liquidation;
 mod market;
+mod market_processor;
 mod position;
 mod price_data;
 mod volatility;
