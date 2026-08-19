@@ -1,3 +1,4 @@
+mod account_refresh_scheduler;
 mod accounts;
 mod app;
 mod coin;

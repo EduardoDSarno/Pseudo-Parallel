@@ -1,7 +1,4 @@
-use std::{
-    collections::{BTreeMap, HashMap},
-    future,
-};
+use std::collections::HashMap;
 
 use hypersdk::Address;
 
@@ -9,9 +6,10 @@ use tokio::sync::{
     mpsc::{self, Receiver, Sender},
     watch,
 };
-use tokio::time::{Instant, sleep_until};
+use tokio::time::Instant;
 
 use crate::{
+    account_refresh_scheduler::AccountRefreshScheduler,
     accounts::{AccountLookupRequest, AddressRefreshState},
     coin::Coin,
     config::{
@@ -83,16 +81,12 @@ async fn process_market_inputs(
     let mut detector = VolatilityDetector::new();
     // Remember when each typed address was last queued for an account lookup.
     let mut discovered_addresses: HashMap<Address, AddressRefreshState> = HashMap::new();
-    // Future refreshes are grouped by deadline so only the earliest one needs
-    // an active timer. Each address is added only once per cooldown.
-    // using BTreeMap because refreshes must be processed in deadline order.
-    let mut scheduled_refreshes: BTreeMap<Instant, Vec<AccountLookupRequest>> = BTreeMap::new();
+    // Keep future account refreshes ordered by their execution deadline.
+    let mut refresh_scheduler = AccountRefreshScheduler::new();
 
     loop
     {
-        let next_refresh_at = scheduled_refreshes
-            .first_key_value()
-            .map(|(deadline, _)| *deadline);
+        let next_refresh_at = refresh_scheduler.next_deadline();
 
         // Wait for either market data or the earliest scheduled refresh.
         tokio::select! {
@@ -115,49 +109,27 @@ async fn process_market_inputs(
                     &mut detector,
                     &current_price_tx,
                     &mut discovered_addresses,
-                    &mut scheduled_refreshes,
+                    &mut refresh_scheduler,
                     &account_lookup_tx,
                 )
                 .await;
             }
 
-            _ = async
-            {
-                match next_refresh_at {
-                    Some(deadline) => sleep_until(deadline).await,
-                    None => future::pending().await,
-                }
+            _ = async {
+                AccountRefreshScheduler::wait_until(next_refresh_at).await;
             } =>
             {
                 let now = Instant::now();
-                let mut due_requests = Vec::new();
+                let scheduled_requests = refresh_scheduler.take_due(now);
 
-                // while there's values inside the refresher
-                // that are some and the deadline as passsed
-                // current time (expired)
-                while scheduled_refreshes
-                    .first_key_value()
-                    .is_some_and(|(deadline, _)| *deadline <= now)
-                {
-                    // returns the entry with earliest deadline
-                    let (_, scheduled_requests) = scheduled_refreshes
-                        .pop_first()
-                        .expect("the earliest scheduled refresh should exist");
+                for request in scheduled_requests {
+                    let is_still_due = discovered_addresses
+                        .get_mut(&request.address)
+                        .is_some_and(AddressRefreshState::take_due_refresh);
 
-                    // second check for expired accounts
-                    for request in scheduled_requests {
-                        let is_still_due = discovered_addresses
-                            .get_mut(&request.address)
-                            .is_some_and(AddressRefreshState::take_due_refresh);
-
-                        if is_still_due {
-                            due_requests.push(request);
-                        }
+                    if is_still_due {
+                        send_account_lookup_request(&account_lookup_tx, request).await;
                     }
-                }
-
-                for request in due_requests {
-                    send_account_lookup_request(&account_lookup_tx, request).await;
                 }
             }
         }

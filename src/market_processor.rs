@@ -1,12 +1,10 @@
-use std::collections::{BTreeMap, HashMap, hash_map::Entry};
+use std::collections::{HashMap, hash_map::Entry};
 
 use hypersdk::Address;
-use tokio::{
-    sync::{mpsc::Sender, watch},
-    time::Instant,
-};
+use tokio::sync::{mpsc::Sender, watch};
 
 use crate::{
+    account_refresh_scheduler::AccountRefreshScheduler,
     accounts::{AccountLookupRequest, AddressRefreshAction, AddressRefreshState},
     helper::send_account_lookup_request,
     market::MarketInput,
@@ -21,7 +19,7 @@ pub async fn process_market_input(
     detector: &mut VolatilityDetector,
     current_price_tx: &watch::Sender<Option<CurrentPrice>>,
     discovered_addresses: &mut HashMap<Address, AddressRefreshState>,
-    scheduled_refreshes: &mut BTreeMap<Instant, Vec<AccountLookupRequest>>,
+    refresh_scheduler: &mut AccountRefreshScheduler,
     account_lookup_tx: &Sender<AccountLookupRequest>,
 ) {
     match input {
@@ -78,10 +76,7 @@ pub async fn process_market_input(
                     }
                     // When cooldown is active, add it to the scheduled refreshes.
                     AddressRefreshAction::ScheduleAt(deadline) => {
-                        scheduled_refreshes
-                            .entry(deadline)
-                            .or_default()
-                            .push(request);
+                        refresh_scheduler.schedule(deadline, request);
                     }
                     AddressRefreshAction::Nothing => {}
                 }
