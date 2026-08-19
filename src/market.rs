@@ -3,12 +3,7 @@ use std::time::SystemTime;
 use chrono::{DateTime, Local};
 use hypersdk::{Address, Decimal};
 
-use crate::coin::Coin;
-
-/// Converts a typed Hyperliquid address for display or text storage.
-pub fn format_address(address: Address) -> String {
-    address.to_string()
-}
+use crate::{accounts::format_address, coin::Coin};
 
 /// Input messages for the market data consumer.
 /// Explicitly represents a market price update.

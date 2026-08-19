@@ -1,5 +1,8 @@
+mod accounts;
 mod app;
+mod coin;
 mod config;
+mod heatmap;
 mod hyperliquid;
 mod liquidation;
 mod market;

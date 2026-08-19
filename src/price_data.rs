@@ -5,6 +5,17 @@ use std::{
 
 use hypersdk::Decimal;
 
+use crate::coin::Coin;
+
+/// The latest market price shared with consumers that do not need every
+/// individual price message.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct CurrentPrice {
+    pub coin: Coin,
+    pub mark_price: Decimal,
+    pub observed_at: SystemTime,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PricePoint {
     price: Decimal,

@@ -12,7 +12,8 @@ use tokio::sync::{mpsc::Receiver, watch};
 use crate::{
     coin::Coin,
     config::{LIQUIDATION_BUCKET_SIZE_USD, hyperliquid_time_to_system_time},
-    liquidation::{HeatmapSnapshot, LiquidationLevel},
+    heatmap::HeatmapSnapshot,
+    liquidation::LiquidationLevel,
     price_data::CurrentPrice,
 };
 

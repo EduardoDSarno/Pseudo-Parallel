@@ -9,11 +9,13 @@ use tokio::{
 };
 
 use crate::{
+    accounts::AccountLookupRequest,
+    coin::Coin,
     config::{
         CLEARINGHOUSE_REQUEST_INTERVAL, MINIMUM_WHALE_POSITION_USD, hyperliquid_time_to_system_time,
     },
-    market::{Coin, MarketInput},
-    position::{AccountLookupRequest, PositionUpdate, filter_whale_position},
+    market::MarketInput,
+    position::{PositionUpdate, filter_whale_position},
 };
 
 /// Subscribes to the active asset context for the given coin and streams

@@ -12,16 +12,16 @@ use tokio::sync::{
 use tokio::time::{Instant, sleep_until};
 
 use crate::{
+    accounts::{AccountLookupRequest, AddressRefreshAction, AddressRefreshState},
+    coin::Coin,
     config::{
         ACCOUNT_LOOKUP_BUFFER, MARKET_INPUT_BUFFER, POSITION_UPDATE_BUFFER,
         VOLATILITY_WINDOW_DURATION, VOLATILITY_WINDOW_MAX_POINTS,
     },
     hyperliquid::{hl_account_state_scanner, hl_market_data},
-    market::{Coin, CurrentPrice, MarketInput},
-    position::{
-        AccountLookupRequest, AddressRefreshAction, AddressRefreshState, run_position_tracker,
-    },
-    price_data::{PricePoint, PriceWindow},
+    market::MarketInput,
+    position::run_position_tracker,
+    price_data::{CurrentPrice, PricePoint, PriceWindow},
     volatility::{VolatilityDetector, evaluate_volatility},
 };
 
@@ -165,13 +165,13 @@ async fn process_market_inputs(
                 }
             }
 
-            _ = async 
+            _ = async
             {
                 match next_refresh_at {
                     Some(deadline) => sleep_until(deadline).await,
                     None => future::pending().await,
                 }
-            } => 
+            } =>
             {
                 let now = Instant::now();
                 let mut due_requests = Vec::new();

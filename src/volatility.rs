@@ -31,11 +31,11 @@ impl MarketTimesVol {
 use std::time::{Instant, SystemTime};
 
 use crate::{
+    coin::Coin,
     config::{
         NEW_YORK_OPEN_VOLATILITY_THRESHOLD_PERCENT, NORMAL_VOLATILITY_THRESHOLD_PERCENT,
         VOLATILITY_COOLDOWN, WEEKEND_VOLATILITY_THRESHOLD_PERCENT,
     },
-    market::Coin,
 };
 
 /// Describes a price movement that crossed the active volatility threshold.
@@ -137,7 +137,7 @@ mod tests {
 
     use hypersdk::dec;
 
-    use crate::market::Coin;
+    use crate::coin::Coin;
 
     use super::{MarketTimesVol, VolatilityDetector, evaluate_volatility, match_market_time};
 

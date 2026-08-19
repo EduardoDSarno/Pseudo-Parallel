@@ -3,6 +3,11 @@ use tokio::time::Instant;
 
 use crate::{coin::Coin, config::ADDRESS_REFRESH_STATE_COOLDOWN};
 
+/// Converts a typed Hyperliquid address for display or text storage.
+pub fn format_address(address: Address) -> String {
+    address.to_string()
+}
+
 /// Requests an authoritative account lookup for one coin.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AccountLookupRequest {
