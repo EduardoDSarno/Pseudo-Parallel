@@ -1,7 +1,3 @@
-use std::collections::HashMap;
-
-use hypersdk::Address;
-
 use tokio::sync::{
     mpsc::{self, Receiver, Sender},
     watch,
@@ -10,7 +6,7 @@ use tokio::time::Instant;
 
 use crate::{
     account_refresh_scheduler::AccountRefreshScheduler,
-    accounts::{AccountLookupRequest, AddressRefreshState},
+    accounts::{AccountLookupRequest, AddressRefreshRegistry},
     coin::Coin,
     config::{
         ACCOUNT_LOOKUP_BUFFER, MARKET_INPUT_BUFFER, POSITION_UPDATE_BUFFER,
@@ -72,7 +68,8 @@ async fn process_market_inputs(
     mut market_rx: Receiver<MarketInput>,
     account_lookup_tx: Sender<AccountLookupRequest>,
     current_price_tx: watch::Sender<Option<CurrentPrice>>,
-) {
+) 
+{
     // Keep the recent prices used by the volatility calculation.
     let mut price_window =
         PriceWindow::new(VOLATILITY_WINDOW_DURATION, VOLATILITY_WINDOW_MAX_POINTS);
@@ -80,7 +77,7 @@ async fn process_market_inputs(
     // Keep the volatility cooldown state between price messages.
     let mut detector = VolatilityDetector::new();
     // Remember when each typed address was last queued for an account lookup.
-    let mut discovered_addresses: HashMap<Address, AddressRefreshState> = HashMap::new();
+    let mut address_refreshes = AddressRefreshRegistry::new();
     // Keep future account refreshes ordered by their execution deadline.
     let mut refresh_scheduler = AccountRefreshScheduler::new();
 
@@ -108,7 +105,7 @@ async fn process_market_inputs(
                     &mut price_window,
                     &mut detector,
                     &current_price_tx,
-                    &mut discovered_addresses,
+                    &mut address_refreshes,
                     &mut refresh_scheduler,
                     &account_lookup_tx,
                 )
@@ -123,11 +120,7 @@ async fn process_market_inputs(
                 let scheduled_requests = refresh_scheduler.take_due(now);
 
                 for request in scheduled_requests {
-                    let is_still_due = discovered_addresses
-                        .get_mut(&request.address)
-                        .is_some_and(AddressRefreshState::take_due_refresh);
-
-                    if is_still_due {
+                    if address_refreshes.take_due_refresh(&request.address) {
                         send_account_lookup_request(&account_lookup_tx, request).await;
                     }
                 }

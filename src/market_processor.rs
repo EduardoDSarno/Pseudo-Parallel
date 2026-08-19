@@ -1,11 +1,8 @@
-use std::collections::{HashMap, hash_map::Entry};
-
-use hypersdk::Address;
 use tokio::sync::{mpsc::Sender, watch};
 
 use crate::{
     account_refresh_scheduler::AccountRefreshScheduler,
-    accounts::{AccountLookupRequest, AddressRefreshAction, AddressRefreshState},
+    accounts::{AccountLookupRequest, AddressRefreshAction, AddressRefreshRegistry},
     helper::send_account_lookup_request,
     market::MarketInput,
     price_data::{CurrentPrice, PricePoint, PriceWindow},
@@ -18,7 +15,7 @@ pub async fn process_market_input(
     price_window: &mut PriceWindow,
     detector: &mut VolatilityDetector,
     current_price_tx: &watch::Sender<Option<CurrentPrice>>,
-    discovered_addresses: &mut HashMap<Address, AddressRefreshState>,
+    address_refreshes: &mut AddressRefreshRegistry,
     refresh_scheduler: &mut AccountRefreshScheduler,
     account_lookup_tx: &Sender<AccountLookupRequest>,
 ) {
@@ -56,17 +53,7 @@ pub async fn process_market_input(
         } => {
             // A trade changes both the buyer and seller positions.
             for address in [buyer, seller] {
-                let refresh_action = match discovered_addresses.entry(address) {
-                    // A new address always receives its initial lookup.
-                    Entry::Vacant(entry) => {
-                        entry.insert(AddressRefreshState::new());
-                        AddressRefreshAction::RequestNow
-                    }
-                    // A known address is either requested now, scheduled once,
-                    // or already represented in the delayed queue.
-                    Entry::Occupied(mut entry) => entry.get_mut().refresh(),
-                };
-
+                let refresh_action = address_refreshes.register_activity(address);
                 let request = AccountLookupRequest { address, coin };
 
                 match refresh_action {

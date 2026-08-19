@@ -1,3 +1,5 @@
+use std::collections::{HashMap, hash_map::Entry};
+
 use hypersdk::Address;
 use tokio::time::Instant;
 
@@ -85,6 +87,40 @@ impl AddressRefreshState {
         self.last_requested_at = now;
         self.needs_refresh = false;
         true
+    }
+}
+
+/// Owns the refresh state for every address discovered from market trades.
+pub struct AddressRefreshRegistry {
+    addresses: HashMap<Address, AddressRefreshState>,
+}
+
+impl AddressRefreshRegistry {
+    pub fn new() -> Self {
+        Self {
+            addresses: HashMap::new(),
+        }
+    }
+
+    /// Records activity for an address and returns the refresh action to take.
+    pub fn register_activity(&mut self, address: Address) -> AddressRefreshAction {
+        match self.addresses.entry(address) {
+            // A new address always receives its initial lookup.
+            Entry::Vacant(entry) => {
+                entry.insert(AddressRefreshState::new());
+                AddressRefreshAction::RequestNow
+            }
+            // A known address may be requested now, scheduled once, or already
+            // represented in the delayed queue.
+            Entry::Occupied(mut entry) => entry.get_mut().refresh(),
+        }
+    }
+
+    /// Takes a scheduled refresh only when the address still exists and is due.
+    pub fn take_due_refresh(&mut self, address: &Address) -> bool {
+        self.addresses
+            .get_mut(address)
+            .is_some_and(AddressRefreshState::take_due_refresh)
     }
 }
 
