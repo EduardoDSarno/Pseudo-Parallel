@@ -1,4 +1,7 @@
-use std::collections::{HashMap, hash_map::Entry};
+use std::{
+    collections::{BTreeMap, HashMap, hash_map::Entry},
+    future,
+};
 
 use hypersdk::Address;
 
@@ -6,6 +9,7 @@ use tokio::sync::{
     mpsc::{self, Receiver, Sender},
     watch,
 };
+use tokio::time::{Instant, sleep_until};
 
 use crate::{
     config::{
@@ -14,7 +18,9 @@ use crate::{
     },
     hyperliquid::{hl_account_state_scanner, hl_market_data},
     market::{Coin, CurrentPrice, MarketInput},
-    position::{AccountLookupRequest, AddressRefreshState, run_position_tracker},
+    position::{
+        AccountLookupRequest, AddressRefreshAction, AddressRefreshState, run_position_tracker,
+    },
     price_data::{PricePoint, PriceWindow},
     volatility::{VolatilityDetector, evaluate_volatility},
 };
@@ -75,64 +81,125 @@ async fn process_market_inputs(
     let mut detector = VolatilityDetector::new();
     // Remember when each typed address was last queued for an account lookup.
     let mut discovered_addresses: HashMap<Address, AddressRefreshState> = HashMap::new();
+    // Future refreshes are grouped by deadline so only the earliest one needs
+    // an active timer. Each address is added only once per cooldown.
+    let mut scheduled_refreshes: BTreeMap<Instant, Vec<AccountLookupRequest>> = BTreeMap::new();
 
-    // Wait without blocking until the WebSocket task sends the next message.
-    while let Some(input) = market_rx.recv().await {
-        input.display();
+    loop {
+        let next_refresh_at = scheduled_refreshes
+            .first_key_value()
+            .map(|(deadline, _)| *deadline);
 
-        match input {
-            MarketInput::PriceUpdate {
-                coin,
-                mark_price,
-                timestamp,
-            } => {
-                // Add the mark price to the rolling volatility window.
-                price_window.push(PricePoint::new(mark_price, timestamp));
+        // Wait for either market data or the earliest scheduled refresh.
+        tokio::select! {
+            maybe_input = market_rx.recv() => {
+                let Some(input) = maybe_input else {
+                    break;
+                };
 
-                // Publish only the latest price to the heatmap tracker. A slow
-                // consumer does not need to process stale prices first.
-                current_price_tx.send_replace(Some(CurrentPrice {
-                    coin,
-                    mark_price,
-                    observed_at: timestamp,
-                }));
+                input.display();
 
-                // Check the latest rolling-window movement for a spike.
-                if let Some(change) = price_window.percentage_change() {
-                    if let Some(spike) = evaluate_volatility(coin, change, timestamp, &mut detector)
-                    {
-                        spike.display();
+                match input {
+                    MarketInput::PriceUpdate {
+                        coin,
+                        mark_price,
+                        timestamp,
+                    } => {
+                        // Add the mark price to the rolling volatility window.
+                        price_window.push(PricePoint::new(mark_price, timestamp));
+
+                        // Publish only the latest price to the heatmap tracker. A slow
+                        // consumer does not need to process stale prices first.
+                        current_price_tx.send_replace(Some(CurrentPrice {
+                            coin,
+                            mark_price,
+                            observed_at: timestamp,
+                        }));
+
+                        // Check the latest rolling-window movement for a spike.
+                        if let Some(change) = price_window.percentage_change() {
+                            if let Some(spike) =
+                                evaluate_volatility(coin, change, timestamp, &mut detector)
+                            {
+                                spike.display();
+                            }
+
+                            println!("Change inside rolling window: {change}%");
+                        }
                     }
+                    MarketInput::TradeObserved {
+                        coin,
+                        buyer,
+                        seller,
+                        ..
+                    } => {
+                        // A trade changes both the buyer and seller positions.
+                        for address in [buyer, seller] {
+                            let refresh_action = match discovered_addresses.entry(address) {
+                                // A new address always receives its initial lookup.
+                                Entry::Vacant(entry) => {
+                                    entry.insert(AddressRefreshState::new());
+                                    AddressRefreshAction::RequestNow
+                                }
+                                // A known address is either requested now, scheduled once,
+                                // or already represented in the delayed queue.
+                                Entry::Occupied(mut entry) => entry.get_mut().refresh(),
+                            };
 
-                    println!("Change inside rolling window: {change}%");
+                            let request = AccountLookupRequest { address, coin };
+
+                            match refresh_action {
+                                AddressRefreshAction::RequestNow => {
+                                    account_lookup_tx
+                                        .send(request)
+                                        .await
+                                        .expect("account lookup task should remain active");
+                                }
+                                AddressRefreshAction::ScheduleAt(deadline) => {
+                                    scheduled_refreshes.entry(deadline).or_default().push(request);
+                                }
+                                AddressRefreshAction::Nothing => {}
+                            }
+                        }
+                    }
                 }
             }
-            MarketInput::TradeObserved {
-                coin,
-                buyer,
-                seller,
-                ..
-            } => {
-                // A trade changes both the buyer and seller positions.
-                for address in [buyer, seller] {
-                    let should_request = match discovered_addresses.entry(address) {
-                        // A new address always receives its initial lookup.
-                        Entry::Vacant(entry) => {
-                            entry.insert(AddressRefreshState::new());
-                            true
+
+            _ = async 
+            {
+                match next_refresh_at {
+                    Some(deadline) => sleep_until(deadline).await,
+                    None => future::pending().await,
+                }
+            } => 
+            {
+                let now = Instant::now();
+                let mut due_requests = Vec::new();
+
+                while scheduled_refreshes
+                    .first_key_value()
+                    .is_some_and(|(deadline, _)| *deadline <= now)
+                {
+                    let (_, scheduled_requests) = scheduled_refreshes
+                        .pop_first()
+                        .expect("the earliest scheduled refresh should exist");
+
+                    for request in scheduled_requests {
+                        let is_still_due = discovered_addresses
+                            .get_mut(&request.address)
+                            .is_some_and(AddressRefreshState::take_due_refresh);
+
+                        if is_still_due {
+                            due_requests.push(request);
                         }
-                        // A known address is queued again only after cooldown.
-                        Entry::Occupied(mut entry) => entry.get_mut().refresh(),
-                    };
-
-                    if should_request {
-                        let request = AccountLookupRequest { address, coin };
-
-                        account_lookup_tx
-                            .send(request)
-                            .await
-                            .expect("account lookup task should remain active");
                     }
+                }
+
+                for request in due_requests {
+                    account_lookup_tx
+                        .send(request)
+                        .await
+                        .expect("account lookup task should remain active");
                 }
             }
         }
